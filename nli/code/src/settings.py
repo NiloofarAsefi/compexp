@@ -146,7 +146,7 @@ class Settings:
     def __init__(
         self,
         subset,
-        model,
+        model="models/bowman_snli/6.pth",
         model_type="bowman",  # Set a default model_type, like "bowman"
         pretrained=None,
         num_clusters=5,
