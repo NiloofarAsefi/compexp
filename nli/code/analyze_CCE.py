@@ -715,6 +715,25 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
     return token_masks, tok_feats_vocab
 
 
+# Parameters
+    cfg = settings_src.Settings(
+        subset=FLAGS.subset,
+        model=FLAGS.model,
+        pretrained=FLAGS.pretrained,
+        num_clusters=FLAGS.num_clusters,
+        beam_limit=FLAGS.beam_limit,
+        device=FLAGS.device,
+        root_models=FLAGS.root_models,
+        root_datasets=FLAGS.root_datasets,
+        root_segmentations=FLAGS.root_segmentations,
+        root_activations=FLAGS.root_activations,
+        root_results=FLAGS.root_results
+    )
+    sparse_segmentation_directory = cfg.get_segmentation_directory()
+    mask_shape = cfg.get_mask_shape()
+
+
+
 def main():
     os.makedirs(settings.RESULT, exist_ok=True)
 
