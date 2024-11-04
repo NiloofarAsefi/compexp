@@ -715,38 +715,40 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
     return token_masks, tok_feats_vocab
 
 
-# Parameters
-    cfg = settings_src.Settings(
-        subset=FLAGS.subset,
-        model=FLAGS.model,
-        pretrained=FLAGS.pretrained,
-        num_clusters=FLAGS.num_clusters,
-        beam_limit=FLAGS.beam_limit,
-        device=FLAGS.device,
-        root_models=FLAGS.root_models,
-        root_datasets=FLAGS.root_datasets,
-        root_segmentations=FLAGS.root_segmentations,
-        root_activations=FLAGS.root_activations,
-        root_results=FLAGS.root_results
-    )
-    sparse_segmentation_directory = cfg.get_segmentation_directory()
-    mask_shape = cfg.get_mask_shape()
-
-
-
 def main():
-    os.makedirs(settings.RESULT, exist_ok=True)
+    # Initialize `cfg` with the required parameters for your NLI task
+    cfg = settings_src.Settings(
+        subset="train",
+        model="bowman",
+        pretrained="snli",
+        num_clusters=5,
+        beam_limit=10,
+        device="cuda",  # Or "cpu" based on availability
+        dataset="snli",
+        root_models="data/model/",
+        root_datasets="data/dataset/",
+        root_results="data/results/",
+        metric="iou",
+        max_formula_length=5,
+        complexity_penalty=1.00,
+        parallel=4,
+        random_weights=False,
+        n_sentence_feats=2000,
+        data_file="data/analysis/snli_1.0_dev.feats"
+    )
+
+    os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
     model, dataset = data.snli.load_for_analysis(
-        settings.MODEL,
-        settings.DATA,
-        model_type=settings.MODEL_TYPE,
-        cuda=settings.CUDA,
+        cfg.get_model_file_path(),
+        cfg.data_file,
+        model_type=cfg.model_type,
+        cuda=cfg.device == "cuda",
     )
 
     # Last model weight
-    if settings.MODEL_TYPE == "minimal":
+    if cfg.model_type == "minimal":
         weights = model.mlp.weight.t().detach().cpu().numpy()
     else:
         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
@@ -760,44 +762,31 @@ def main():
     # activations (line 132) in CCE = states (1024 units) in CE
     print("Niloo")
     activations = all_states_tensor
-    # the rest of the code after this point should be similar to CCE (not CE).
     selected_units = [80, 200, 400]
-    for unit in selected_units: # this is line 148 of CCE.
+    for unit in selected_units:
         unit_activations = activations[unit]
-        # Error: unit_activations should be numpy, but compute_activation_ranges expects torch.tensor.
-        activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, settings.NUM_CLUSTERS)
+        activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
-        # Loop over all the activation ranges
-        for cluster_index, activation_range in enumerate(
-            sorted(activation_ranges)
-        ):
+        for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
             dir_current_results = (
-                    f"{cfg.get_results_directory()}/"
-                    + f"{layer_name}/{unit}/{activation_range}"
-                )
+                f"{cfg.get_results_directory()}/"
+                + f"{cfg.model}/{unit}/{activation_range}"
+            )
             if not os.path.exists(dir_current_results):
                 os.makedirs(dir_current_results)
-            file_algo_results = (
-                f"{dir_current_results}/" + f"{FLAGS.length}.pickle"
-            )
+            file_algo_results = f"{dir_current_results}/" + f"{cfg.max_formula_length}.pickle"
+
             if not os.path.exists(file_algo_results):
-                # Compute binary masks
                 bitmaps = activation_utils_src.compute_bitmaps(
                     unit_activations,
                     activation_range,
-                    mask_shape=mask_shape,
+                    mask_shape=mask_shape,  # Define mask_shape as needed
                 )
                 bitmaps = bitmaps.to(cfg.device)
-                (
-                    best_label,
-                    best_iou,
-                    visited,
-                ) = algorithms_src.get_heuristic_scores(
-                    masks,
-                    bitmaps,
-                    segmentations_info=masks_info,
+                best_label, best_iou, visited = algorithms_src.get_heuristic_scores(
+                    masks, bitmaps, segmentations_info=masks_info,  # Define masks and masks_info as needed
                     heuristic="mmesh",
-                    length=FLAGS.length,
+                    length=cfg.max_formula_length,
                     max_size_mask=cfg.get_max_mask_size(),
                     mask_shape=cfg.get_mask_shape(),
                     device=cfg.device,
@@ -810,11 +799,93 @@ def main():
             string_label = F_src.get_formula_str(best_label, dataset.labels)
             print(
                 f"Parsed Unit: {unit} - "
-                + f"Cluster: {cluster_index} - "
-                + f"Best Label: {string_label} - "
-                + f"Best IoU: {round(best_iou,3)} - "
-                + f"Visited: {visited}"
+                f"Cluster: {cluster_index} - "
+                f"Best Label: {string_label} - "
+                f"Best IoU: {round(best_iou,3)} - "
+                f"Visited: {visited}"
             )
+
+# def main():
+#     os.makedirs(settings.RESULT, exist_ok=True)
+
+#     print("Loading model/vocab")
+#     model, dataset = data.snli.load_for_analysis(
+#         settings.MODEL,
+#         settings.DATA,
+#         model_type=settings.MODEL_TYPE,
+#         cuda=settings.CUDA,
+#     )
+
+#     # Last model weight
+#     if settings.MODEL_TYPE == "minimal":
+#         weights = model.mlp.weight.t().detach().cpu().numpy()
+#     else:
+#         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
+
+#     print("Extracting features")
+#     toks, states, feats, idxs, all_states_tensor = extract_features(
+#         model,
+#         dataset,
+#     )
+#     # CE has states as the activations, and CCE has activations.
+#     # activations (line 132) in CCE = states (1024 units) in CE
+#     print("Niloo")
+#     activations = all_states_tensor
+#     # the rest of the code after this point should be similar to CCE (not CE).
+#     selected_units = [80, 200, 400]
+#     for unit in selected_units: # this is line 148 of CCE.
+#         unit_activations = activations[unit]
+#         # Error: unit_activations should be numpy, but compute_activation_ranges expects torch.tensor.
+#         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, settings.NUM_CLUSTERS)
+        
+#         # Loop over all the activation ranges
+#         for cluster_index, activation_range in enumerate(
+#             sorted(activation_ranges)
+#         ):
+#             dir_current_results = (
+#                     f"{cfg.get_results_directory()}/"
+#                     + f"{layer_name}/{unit}/{activation_range}"
+#                 )
+#             if not os.path.exists(dir_current_results):
+#                 os.makedirs(dir_current_results)
+#             file_algo_results = (
+#                 f"{dir_current_results}/" + f"{FLAGS.length}.pickle"
+#             )
+#             if not os.path.exists(file_algo_results):
+#                 # Compute binary masks
+#                 bitmaps = activation_utils_src.compute_bitmaps(
+#                     unit_activations,
+#                     activation_range,
+#                     mask_shape=mask_shape,
+#                 )
+#                 bitmaps = bitmaps.to(cfg.device)
+#                 (
+#                     best_label,
+#                     best_iou,
+#                     visited,
+#                 ) = algorithms_src.get_heuristic_scores(
+#                     masks,
+#                     bitmaps,
+#                     segmentations_info=masks_info,
+#                     heuristic="mmesh",
+#                     length=FLAGS.length,
+#                     max_size_mask=cfg.get_max_mask_size(),
+#                     mask_shape=cfg.get_mask_shape(),
+#                     device=cfg.device,
+#                 )
+#                 with open(file_algo_results, "wb") as file:
+#                     pickle.dump((best_label, best_iou, visited), file)
+#             else:
+#                 with open(file_algo_results, "rb") as file:
+#                     best_label, best_iou, visited = pickle.load(file)
+#             string_label = F_src.get_formula_str(best_label, dataset.labels)
+#             print(
+#                 f"Parsed Unit: {unit} - "
+#                 + f"Cluster: {cluster_index} - "
+#                 + f"Best Label: {string_label} - "
+#                 + f"Best IoU: {round(best_iou,3)} - "
+#                 + f"Visited: {visited}"
+#             )
 
 
 #     print("Computing quantiles")
