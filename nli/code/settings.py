@@ -57,3 +57,4 @@ dbase = os.path.splitext(os.path.basename(DATA))[0]
 RESULT = f"exp/{dbase}-{mbase}-sentence-{MAX_FORMULA_LENGTH}{'-shuffled' if SHUFFLE else ''}{'-debug' if DEBUG else ''}{f'-{METRIC}' if METRIC != 'iou' else ''}{f'-random-weights' if RANDOM_WEIGHTS else ''}"
 
 print(RESULT)
+
