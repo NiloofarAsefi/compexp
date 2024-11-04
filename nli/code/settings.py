@@ -12,6 +12,9 @@ COMPLEXITY_PENALTY = 1.00
 TOPN = 5
 DEBUG = False
 
+#My, number of clusters
+NUM_CLUSTERS = 5  
+
 # Choices: iou, precision, recall
 METRIC = "iou"
 
@@ -37,6 +40,7 @@ DATA = "data/analysis/snli_1.0_dev.feats"
 
 assert DATA.endswith(".feats")
 VECPATH = DATA.replace(".feats", ".vec")
+
 
 # Overridables
 if "MTDISSECT_MODEL" in os.environ:
