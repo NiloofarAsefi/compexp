@@ -795,17 +795,26 @@ def main():
             file_algo_results = f"{dir_current_results}/" + f"{cfg.max_formula_length}.pickle"
 
             if not os.path.exists(file_algo_results):
+
+                # Compute binary masks
                 bitmaps = activation_utils_src.compute_bitmaps(
                     unit_activations,
                     activation_range,
+                    mask_shape=mask_shape,
                 )
                 bitmaps = bitmaps.to(cfg.device)
-                best_label, best_iou, visited = algorithms_src.get_heuristic_scores(
-                    masks, bitmaps, segmentations_info=masks_info,  # Define masks and masks_info as needed
+                (
+                    best_label,
+                    best_iou,
+                    visited,
+                ) = algorithms_src.get_heuristic_scores(
+                    masks,
+                    bitmaps,
+                    segmentations_info=masks_info,
                     heuristic="mmesh",
-                    length=cfg.max_formula_length,
+                    length=FLAGS.length,
                     max_size_mask=cfg.get_max_mask_size(),
-                    #mask_shape=cfg.get_mask_shape(),    #skip mask shape for nli task 
+                    mask_shape=cfg.get_mask_shape(),
                     device=cfg.device,
                 )
                 with open(file_algo_results, "wb") as file:
