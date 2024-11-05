@@ -147,13 +147,13 @@ class Settings:
         self,
         subset,
         model="models/bowman_snli/6.pth",
-        model_type="bowman",  # Set a default model_type, like "bowman"
+        model_type="bowman",
+        root_models="models/",  # Base directory for models, I already start from compexp/nli
         pretrained=None,
         num_clusters=5,
         beam_limit=10,
         device="cpu",
         dataset="snli",
-        root_models="data/model/",
         root_datasets="data/dataset/",
         root_results="data/results/",
         metric="iou",
@@ -208,12 +208,20 @@ class Settings:
         """
         return 3  # entailment, neutral, contradiction
 
+#     def get_model_file_path(self):
+#         """
+#         Returns the path to the pretrained model file for NLI.
+#         """
+#         model_file_name = f"{self.model}_{self.dataset}.pth.tar"
+#         return f"{self.__root_models}{model_file_name}" if self.pretrained else None
+
     def get_model_file_path(self):
-        """
-        Returns the path to the pretrained model file for NLI.
-        """
-        model_file_name = f"{self.model}_{self.dataset}.pth.tar"
-        return f"{self.__root_models}{model_file_name}" if self.pretrained else None
+            """
+            Returns the path to the pretrained model file for NLI.
+            """
+            # Use the model directly without appending dataset or additional extensions
+            return f"{self.__root_models}{self.model}"
+
 
     def get_results_directory(self):
         """
