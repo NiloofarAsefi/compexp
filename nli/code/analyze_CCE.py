@@ -57,11 +57,29 @@ def save_with_acts(preds, acts, fname):
 
 
 
+# def load_vecs(path):
+#     vecs = []
+#     vecs_stoi = {}
+#     vecs_itos = {}
+#     with open(path, "r") as f:
+#         for line in f:
+#             tok, *nums = line.split(" ")
+#             nums = np.array(list(map(float, nums)))
+
+#             assert tok not in vecs_stoi
+#             new_n = len(vecs_stoi)
+#             vecs_stoi[tok] = new_n
+#             vecs_itos[new_n] = tok
+#             vecs.append(nums)
+#     vecs = np.array(vecs)
+#     return vecs, vecs_stoi, vecs_itos
+
 def load_vecs(path):
     vecs = []
     vecs_stoi = {}
     vecs_itos = {}
-    with open(path, "r") as f:
+    # Specify encoding='utf-8' to handle non-ASCII characters
+    with open(path, "r", encoding="utf-8") as f:
         for line in f:
             tok, *nums = line.split(" ")
             nums = np.array(list(map(float, nums)))
@@ -73,7 +91,6 @@ def load_vecs(path):
             vecs.append(nums)
     vecs = np.array(vecs)
     return vecs, vecs_stoi, vecs_itos
-
 
 # Load vectors
 VECS, VECS_STOI, VECS_ITOS = load_vecs(settings.VECPATH)
@@ -719,13 +736,14 @@ def main():
     # Initialize `cfg` with the required parameters for your NLI task
     cfg = settings_src.Settings(
         subset="train",
-        model="bowman",
+        model="bowman_snli/6.pth",
+        model_type ="bowman",
+        root_models="models/",
         pretrained="snli",
         num_clusters=5,
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
-        root_models="data/model/",
         root_datasets="data/dataset/",
         root_results="data/results/",
         metric="iou",
@@ -780,7 +798,6 @@ def main():
                 bitmaps = activation_utils_src.compute_bitmaps(
                     unit_activations,
                     activation_range,
-                    mask_shape=mask_shape,  # Define mask_shape as needed
                 )
                 bitmaps = bitmaps.to(cfg.device)
                 best_label, best_iou, visited = algorithms_src.get_heuristic_scores(
@@ -788,7 +805,7 @@ def main():
                     heuristic="mmesh",
                     length=cfg.max_formula_length,
                     max_size_mask=cfg.get_max_mask_size(),
-                    mask_shape=cfg.get_mask_shape(),
+                    #mask_shape=cfg.get_mask_shape(),    #skip mask shape for nli task 
                     device=cfg.device,
                 )
                 with open(file_algo_results, "wb") as file:
