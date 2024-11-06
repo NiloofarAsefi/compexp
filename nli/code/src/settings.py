@@ -137,6 +137,7 @@ https://github.com/jayelm/compexp/blob/master/vision/settings.py"""
 #             f"{self.index_subset}/{self.get_img_size()}"
 #         )
 
+
 import os
 
 class Settings:
@@ -166,7 +167,6 @@ class Settings:
         shuffle=False,  # Add shuffle with a default value
         debug=False  # Add debug with a default value
     ):  
-        
         # Core settings
         self.index_subset = subset
         self.model = model
@@ -208,20 +208,12 @@ class Settings:
         """
         return 3  # entailment, neutral, contradiction
 
-#     def get_model_file_path(self):
-#         """
-#         Returns the path to the pretrained model file for NLI.
-#         """
-#         model_file_name = f"{self.model}_{self.dataset}.pth.tar"
-#         return f"{self.__root_models}{model_file_name}" if self.pretrained else None
-
     def get_model_file_path(self):
-            """
-            Returns the path to the pretrained model file for NLI.
-            """
-            # Use the model directly without appending dataset or additional extensions
-            return f"{self.__root_models}{self.model}"
-
+        """
+        Returns the path to the pretrained model file for NLI.
+        """
+        # Use the model directly without appending dataset or additional extensions
+        return f"{self.__root_models}{self.model}"
 
     def get_results_directory(self):
         """
@@ -231,6 +223,40 @@ class Settings:
             f"{self.__root_results}{self.dataset}/{self.index_subset}/"
             f"{self.model}-clusters{self.num_clusters}/"
         )
+    
+    def get_mask_shape(self):
+        """
+        Returns the shape of the mask based on the model type specified in settings.
+        For the Bowman model in NLI tasks, it returns a sentence-level embedding shape.
+        
+        Returns:
+        - Tuple[int]: Shape of the mask as (embedding_dim,) for Bowman model in NLI.
+        - Defaults to vision model shapes if model type is not Bowman.
+        """
+        if self.model_type == "bowman":
+            # Assuming Bowman model in NLI task uses sentence-level embeddings
+            embedding_dim = 512  # Replace with actual encoder dimension if different
+            return (embedding_dim,)
+        else:
+            # Default mask shapes for vision models in CCE
+            return (112, 112) if self.model_type != "alexnet" else (113, 113)
+
+    def get_max_mask_size(self):
+        """
+        Returns the maximum size of the mask based on the model type.
+
+        For vision models, it calculates the area (width * height).
+        For NLI models, it returns the embedding dimension size (sentence-level mask).
+
+        Returns:
+        - int: Maximum mask size based on model type.
+        """
+        mask_shape = self.get_mask_shape()
+        
+        if len(mask_shape) == 2:   # Vision model case
+            return mask_shape[0] * mask_shape[1]
+        else:                     # NLI model case, like Bowman
+            return mask_shape[0]
 
     def get_model_root(self):
         """
