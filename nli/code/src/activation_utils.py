@@ -70,30 +70,60 @@ def compute_activation_ranges(
     return activation_ranges
 
 
+# def compute_bitmaps(
+#         activations: torch.Tensor, activation_range: Tuple,
+#         mask_shape: List[int]) -> torch.Tensor:
+#     """Get the bitmaps of the unit.
+
+#     This function upsamples the activations to the original size of the
+#     image and then binarize them.
+#     Args:
+#         activations (torch.Tensor): Activations of the unit.
+#         activation_range (Tuple): Activation range of the unit.
+#         mask_shape (List[int]): Shape of the mask.
+
+#     Returns:
+#         bitmaps (torch.Tensor): Bitmaps of the unit.
+#     """
+#     lower, upper = activation_range
+#     upsampled_activations = torch.nn.functional.interpolate(
+#         activations.unsqueeze(1),
+#         size=mask_shape, mode='bilinear')
+#     upsampled_activations = upsampled_activations.squeeze(1)
+#     bitmaps = torch.where(
+#         (upsampled_activations > lower) & (upsampled_activations < upper),
+#         True, False)
+#     bitmaps = bitmaps.reshape(bitmaps.shape[0], -1)
+#     return bitmap
+
+# bitmaps: Binary mask for the current neuron
+
 def compute_bitmaps(
         activations: torch.Tensor, activation_range: Tuple,
-        mask_shape: List[int]) -> torch.Tensor:
-    """Get the bitmaps of the unit.
+        mask_shape: Tuple[int]) -> torch.Tensor:
+    """Get the bitmaps of the unit for NLI tasks with mask shape.
 
-    This function upsamples the activations to the original size of the
-    image and then binarize them.
+    This function binarizes the activations based on the specified
+    activation range and reshapes them to match `mask_shape`.
+    
     Args:
-        activations (torch.Tensor): Activations of the unit.
+        activations (torch.Tensor): Activations of the unit (non-spatial).
         activation_range (Tuple): Activation range of the unit.
-        mask_shape (List[int]): Shape of the mask.
+        mask_shape (Tuple[int]): Expected shape of the mask (e.g., (embedding_dim,)).
 
     Returns:
-        bitmaps (torch.Tensor): Bitmaps of the unit.
+        bitmaps (torch.Tensor): Bitmaps of the unit with shape `mask_shape`.
     """
     lower, upper = activation_range
-    upsampled_activations = torch.nn.functional.interpolate(
-        activations.unsqueeze(1),
-        size=mask_shape, mode='bilinear')
-    upsampled_activations = upsampled_activations.squeeze(1)
+
+    # Directly binarize activations based on activation range
     bitmaps = torch.where(
-        (upsampled_activations > lower) & (upsampled_activations < upper),
-        True, False)
-    bitmaps = bitmaps.reshape(bitmaps.shape[0], -1)
+        (activations > lower) & (activations < upper),
+        True, False
+    )
+
+    # Reshape bitmaps to match `mask_shape`
+    bitmaps = bitmaps.reshape(-1, * mask_shape)
     return bitmaps
 
 
