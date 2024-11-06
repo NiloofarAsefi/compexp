@@ -738,6 +738,7 @@ def main():
         subset="train",
         model="bowman_snli/6.pth",
         model_type ="bowman",
+        #get_mask_shape=
         root_models="models/",
         pretrained="snli",
         num_clusters=5,
