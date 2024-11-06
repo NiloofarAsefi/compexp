@@ -85,18 +85,37 @@ def save_sparse_masks(segloader, concept_names, segmentations_directory, device)
                     )
 
 
+# def get_mask_type(masks):
+#     """
+#     Returns the type of the masks.
+#     Args:
+#         masks (list): list of masks.
+#     Returns:
+#         Type of the masks.
+#     """
+#     if isinstance(masks[1], sparse.csr_matrix):
+#         return "csr"
+#     else:
+#         return "torch"
+
+
+#Define mask type for NLI task
+
 def get_mask_type(masks):
     """
-    Returns the type of the masks.
+    Returns the type of the masks for NLI.
+    
     Args:
-        masks (list): list of masks.
+        masks (list or torch.Tensor): List or tensor of masks.
+        
     Returns:
-        Type of the masks.
+        str: Type of the masks ("torch" for torch.Tensor or "other" for other types).
     """
-    if isinstance(masks[1], sparse.csr_matrix):
-        return "csr"
-    else:
+    if isinstance(masks[0], torch.Tensor):
         return "torch"
+    else:
+        return "other"
+
 
 
 def extract_mask(index, masks, mask_type="torch"):
