@@ -759,6 +759,9 @@ def main():
     mask_shape = cfg.get_mask_shape()
     print("Mask Shape:", mask_shape)
     
+    # Initialize masks as an empty list or tensor
+    masks = []
+    
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
