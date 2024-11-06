@@ -738,7 +738,6 @@ def main():
         subset="train",
         model="bowman_snli/6.pth",
         model_type ="bowman",
-        #get_mask_shape=
         root_models="models/",
         pretrained="snli",
         num_clusters=5,
@@ -756,6 +755,10 @@ def main():
         data_file="data/analysis/snli_1.0_dev.feats"
     )
 
+    
+    mask_shape = cfg.get_mask_shape()
+    print("Mask Shape:", mask_shape)
+    
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
