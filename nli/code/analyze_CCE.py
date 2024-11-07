@@ -36,6 +36,7 @@ from src import formula as F_src
 from src import settings as settings_src
 #from src import constants as C_src
 
+ 
 
 
 # def save_with_acts(preds, acts, fname):
@@ -761,7 +762,8 @@ def main():
     
     # Initialize masks as an empty list or tensor
     masks = []
-    
+    # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
+    masks_info = None
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
@@ -819,7 +821,7 @@ def main():
                     bitmaps,
                     segmentations_info=masks_info,
                     heuristic="mmesh",
-                    length=FLAGS.length,
+                    length=cfg.max_formula_length,                         #replace length=FLAGS.length to length=cfg.max_formula_length  
                     max_size_mask=cfg.get_max_mask_size(),
                     mask_shape=cfg.get_mask_shape(),
                     device=cfg.device,
