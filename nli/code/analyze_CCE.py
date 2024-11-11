@@ -259,6 +259,7 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
     formula.mask = masks
 
     if settings.METRIC == "iou":
+        # size of masks is feats which is 10,000, but size of acts is 1024.
         comp_iou = iou(masks, acts)
     elif settings.METRIC == "precision":
         comp_iou = precision_score(masks, acts)
@@ -409,6 +410,69 @@ def compute_best_sentence_iou(args):
         "best": best,
         "best_noncomp": best_noncomp,
     }
+
+def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
+#     (unit,) = args
+    
+#     if acts.sum() < settings.MIN_ACTS:
+#         print(' iffffffffff ', acts.sum(), settings.MIN_ACTS)
+#         null_f = (FM.Leaf(0), 0)
+#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+
+    feats_to_search = list(range(feats.shape[1]))
+    formulas = {}
+    masks = {}
+    for fval in feats_to_search:
+        formula = FM.Leaf(fval)
+        formulas[formula] = compute_iou(
+            formula, acts, feats, dataset, feat_type="sentence"
+        )
+
+        for op, negate in OPS["lemma"]:
+            # FIXME: Don't evaluate on neighbors if they don't exist
+            new_formula = formula
+            if negate:
+                new_formula = FM.Not(new_formula)
+            new_formula = op(new_formula)
+            new_iou = compute_iou(
+                new_formula, acts, feats, dataset, feat_type="sentence"
+            )
+            formulas[new_formula] = new_iou
+
+    nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
+    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+    best_noncomp = Counter(formulas).most_common(1)[0]
+
+    for i in range(settings.MAX_FORMULA_LENGTH - 1):
+        new_formulas = {}
+        for formula in formulas:
+            # Generic binary ops
+            for feat in nonzero_iou:
+                for op, negate in OPS["all"]:
+                    if not isinstance(feat, FM.F):
+                        new_formula = FM.Leaf(feat)
+                    else:
+                        new_formula = feat
+                    if negate:
+                        new_formula = FM.Not(new_formula)
+                    new_formula = op(formula, new_formula)
+                    new_iou = compute_iou(
+                        new_formula, acts, feats, dataset, feat_type="sentence"
+                    )
+                    new_formulas[new_formula] = new_iou
+
+        formulas.update(new_formulas)
+        # Trim the beam
+        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+
+    best = Counter(formulas).most_common(1)[0]
+    report = {
+        "unit": unit,
+        "best": best,
+        "best_noncomp": best_noncomp,
+    }
+    print('output compute_best_sentence_iou_niloo ', formulas)
+    return formulas
 
 
 def pad_collate(batch, sort=True):
@@ -756,14 +820,11 @@ def main():
         data_file="data/analysis/snli_1.0_dev.feats"
     )
 
-    sparse_segmentation_directory = cfg.get_segmentation_directory()
+    sparse_segmentation_directory = None # cfg.get_segmentation_directory()
     mask_shape = cfg.get_mask_shape()
     print("Mask Shape:", mask_shape)
     
-    # Initialize masks as an empty list or tensor
     
-    # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
-    masks_info = mask_utils.get_masks_info(masks, config=cfg)
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
@@ -785,7 +846,19 @@ def main():
         model,
         dataset,
     )
-    masks = get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
+    print("Computing quantiles")
+    acts = quantile_features(states)
+    tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
+    
+#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
+    
+    
+    # Initialize masks as an empty list or tensor
+    
+    # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
+#     masks = []
+#     masks_info = None  # 
+#     heuristic_function = "none"
     
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
@@ -794,6 +867,14 @@ def main():
     selected_units = [80, 200, 400]
     for unit in selected_units:
         unit_activations = activations[unit]
+        print('print hereeeeeee ', unit_activations)
+        formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+        feat_type = "sentence"
+        print(formula)
+        masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
+        masks_info = mask_utils.get_masks_info(masks, config=cfg)
+        heuristic_function = "mmesh"
+
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
         for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
@@ -822,7 +903,7 @@ def main():
                     masks,
                     bitmaps,
                     segmentations_info=masks_info,
-                    heuristic="mmesh",
+                    heuristic=heuristic_function, # mmesh=none
                     length=cfg.max_formula_length,                         #replace length=FLAGS.length to length=cfg.max_formula_length  
                     max_size_mask=cfg.get_max_mask_size(),
                     mask_shape=cfg.get_mask_shape(),
