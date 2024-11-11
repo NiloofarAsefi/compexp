@@ -756,14 +756,14 @@ def main():
         data_file="data/analysis/snli_1.0_dev.feats"
     )
 
-    
+    sparse_segmentation_directory = cfg.get_segmentation_directory()
     mask_shape = cfg.get_mask_shape()
     print("Mask Shape:", mask_shape)
     
     # Initialize masks as an empty list or tensor
-    masks = []
+    
     # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
-    masks_info = None
+    masks_info = mask_utils.get_masks_info(masks, config=cfg)
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
@@ -785,6 +785,8 @@ def main():
         model,
         dataset,
     )
+    masks = get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
+    
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
     print("Niloo")
