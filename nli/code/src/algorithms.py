@@ -112,11 +112,11 @@ def get_heuristic_scores(
         best_iou (float): The IOU of the best concept.
         visited (int): The number of visited nodes.
     """
-
-    if segmentations_info is None and heuristic != "none":
-        raise ValueError(
-            "segmentations_info must be provided when heuristic is not none"
-        )
+# I comment this section
+#     if segmentations_info is None and heuristic != "none":
+#         raise ValueError(
+#             "segmentations_info must be provided when heuristic is not none"
+#         )
     # Compute commong parameters
     num_hits = activation_masks.sum()
 
