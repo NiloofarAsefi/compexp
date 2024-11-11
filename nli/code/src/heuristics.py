@@ -109,15 +109,7 @@ def get_intersection_info(
     Returns:
         Intersection between the term and the firing areas
     """
-
-    if isinstance(term, F.BinaryNode):
-        term_and_fires_areas = enneary_intersect[term]
-    elif isinstance(term, F.Not):
-        term_and_fires_areas = neuron_areas - unary_intersect[term.val.val]
-    else:
-        term_and_fires_areas = unary_intersect[term.val]
-
-    return term_and_fires_areas
+    
 
 
 def get_area_info(term, unary_areas, enneary_areas, max_size_mask):
