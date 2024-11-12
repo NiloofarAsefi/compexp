@@ -121,9 +121,9 @@ def compute_bitmaps(
         (activations > lower) & (activations < upper),
         True, False
     )
-
+    bitmaps = bitmaps.reshape(bitmaps.shape[0], -1)
     # Reshape bitmaps to match `mask_shape`
-    bitmaps = bitmaps.reshape(-1, * mask_shape)
+#     bitmaps = bitmaps.reshape(-1, * mask_shape)
     return bitmaps
 
 

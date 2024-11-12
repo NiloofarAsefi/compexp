@@ -125,16 +125,20 @@ def get_mask(feats, f, dataset, feat_type):
     """
     # Mask has been cached
     if f.mask is not None:
+        print('get_mask_1')
         return f.mask
     if isinstance(f, FM.And):
+        print('get_mask_2')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l & masks_r
     elif isinstance(f, FM.Or):
+        print('get_mask_3')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l | masks_r
     elif isinstance(f, FM.Not):
+        print('get_mask_4')
         masks_val = get_mask(feats, f.val, dataset, feat_type)
         return 1 - masks_val
     elif isinstance(f, FM.Neighbors):
@@ -154,6 +158,7 @@ def get_mask(feats, f, dataset, feat_type):
             # TODO: Just pass in the entire dataset.
             # The feature category should be lemma
             # Must call neighbors on a leaf
+            print('get_mask_5')
             assert isinstance(f.val, FM.Leaf)
             ci = dataset.fis2cis[f.val.val]
             assert dataset.citos[ci] == "lemma"
@@ -178,6 +183,7 @@ def get_mask(feats, f, dataset, feat_type):
             ]
             return np.isin(feats["onehot"][:, ci], neighbors)
         else:
+            print('get_mask_6')
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
             fname = dataset["itos"][fval]
@@ -198,6 +204,7 @@ def get_mask(feats, f, dataset, feat_type):
     elif isinstance(f, FM.Leaf):
         if feat_type == "word":
             # Get category
+            print('get_mask_7')
             ci = dataset.fis2cis[f.val]
             cname = dataset.fis2cnames[f.val]
             if dataset.ctypes[cname] == "multi":
@@ -208,6 +215,7 @@ def get_mask(feats, f, dataset, feat_type):
             else:
                 return feats["onehot"][:, ci] == f.val
         else:
+            print('get_mask_8')
             return feats[:, f.val]
     else:
         raise ValueError("Most be passed formula")
@@ -254,7 +262,9 @@ OPS = defaultdict(
 
 
 def compute_iou(formula, acts, feats, dataset, feat_type="word"):
+    print("feats ", feats.shape) # 10000, 4087
     masks = get_mask(feats, formula, dataset, feat_type)
+    print('comput_iou + masks: ', masks.shape) # (10000,)
     # Cache mask
     formula.mask = masks
 
@@ -424,6 +434,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     masks = {}
     for fval in feats_to_search:
         formula = FM.Leaf(fval)
+        print(' compute formulaaaaa: ', formula)
         formulas[formula] = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
         )
@@ -867,13 +878,7 @@ def main():
     selected_units = [80, 200, 400]
     for unit in selected_units:
         unit_activations = activations[unit]
-        print('print hereeeeeee ', unit_activations)
-        formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
-        feat_type = "sentence"
-        print(formula)
-        masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
-        masks_info = mask_utils.get_masks_info(masks, config=cfg)
-        heuristic_function = "mmesh"
+        
 
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
@@ -894,6 +899,14 @@ def main():
                     activation_range,
                     mask_shape=mask_shape,
                 )
+                print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
+                formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+                feat_type = "sentence"
+                print(formula)
+                masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
+                print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
+                masks_info = mask_utils.get_masks_info(masks, config=cfg)
+                heuristic_function = "mmesh"
                 bitmaps = bitmaps.to(cfg.device)
                 (
                     best_label,

@@ -230,13 +230,13 @@ class Settings:
         For the Bowman model in NLI tasks, it returns a sentence-level embedding shape.
         
         Returns:
-        - Tuple[int]: Shape of the mask as (embedding_dim,) for Bowman model in NLI.
+        - Tuple[int]: Shape of the mask as (mlp_linear_output,1) for Bowman model in NLI.
         - Defaults to vision model shapes if model type is not Bowman.
         """
         if self.model_type == "bowman":
             # Assuming Bowman model in NLI task uses sentence-level embeddings
-            embedding_dim = 512  # Replace with actual encoder dimension if different
-            return (embedding_dim,)
+            mlp_linear_output = 1024  # Replace with actual encoder dimension if different
+            return (mlp_linear_output,1)
         else:
             # Default mask shapes for vision models in CCE
             return (112, 112) if self.model_type != "alexnet" else (113, 113)
