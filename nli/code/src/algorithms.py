@@ -57,6 +57,9 @@ def get_augmented_netdissect_scores(bitmaps, masks):
         netdissect_rank (dict): A dictionary of concept scores. Each score is
             a float.
     """
+    print("Niloo Type of masks:", type(masks))
+    print("Niloo Contents of masks:", masks)
+    
     netdissect_rank = {}
     areas = [None]
     mask_type = "tensor" if isinstance(masks[1], torch.Tensor) else "sparse"

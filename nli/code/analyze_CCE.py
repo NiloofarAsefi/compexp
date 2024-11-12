@@ -98,7 +98,41 @@ VECS, VECS_STOI, VECS_ITOS = load_vecs(settings.VECPATH)
 
 
 NEIGHBORS_CACHE = {}
+#Define this function becuase I need mask_info
 
+def get_masks_info_nli(masks, feats, config):
+    """Returns the masks information for NLI, useful for heuristics.
+
+    Args:
+        masks (list): List of masks, which may include formula objects.
+        feats (array): Features array used for generating masks.
+        config (Settings): Configuration of the current run.
+
+    Returns:
+        tuple: A tuple containing:
+            - concept_areas (list): List of concept areas (sum of mask elements).
+            - concept_ranges (list): List of ranges for each mask.
+            - concept_counts (list): List of counts per mask.
+    """
+    concept_areas = []
+    concept_ranges = []
+    concept_counts = []
+    
+    # Ensure each mask is an array, converting if it's a formula
+    for mask in masks:
+        if isinstance(mask, (FM.And, FM.Or, FM.Not, FM.Leaf)):
+            # Convert formula to array using get_mask
+            mask_array = get_mask(feats, mask, config.dataset, config.feat_type)
+        else:
+            mask_array = mask  # Already an array or numerical mask
+
+        # Now we can safely apply operations on mask_array
+        concept_areas.append(mask_array.sum())  # Calculate area as sum of true values
+        concept_ranges.append(range(len(mask_array)))  # Range for each concept
+        concept_counts.append(len(mask_array.nonzero()[0]))  # Non-zero count
+
+    masks_info = (concept_areas, (concept_ranges, concept_counts))
+    return masks_info
 
 def get_neighbors(lemma):
     """
@@ -838,18 +872,21 @@ def main():
         parallel=4,
         random_weights=False,
         n_sentence_feats=2000,
-        data_file="data/analysis/snli_1.0_dev.feats"
+        data_file="data/analysis/snli_1.0_dev.feats",
+        feat_type="sentence"  # Add feat_type here as "sentence" or "word"
     )
     
     info_directory = cfg.get_info_directory()     #define get_info_directory() in Setting class for NLI task and here
     print("Info directory:", info_directory)
     
+    
 
     sparse_segmentation_directory = None # cfg.get_segmentation_directory()
     mask_shape = cfg.get_mask_shape()
     print("Mask Shape:", mask_shape)
-    
-    
+  
+
+    # Now get the masks information
     os.makedirs(cfg.get_results_directory(), exist_ok=True)
 
     print("Loading model/vocab")
@@ -874,6 +911,7 @@ def main():
     print("Computing quantiles")
     acts = quantile_features(states)
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
+    
     
 #     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
     
@@ -918,9 +956,17 @@ def main():
                 feat_type = "sentence"
                 print(formula)
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
-                masks = get_mask(feats, formula, dataset, feat_type)
                 #print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
-                masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
+                #masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
+                
+                 # Generate masks based on computed formula
+                masks = get_mask(feats, formula, dataset, feat_type)
+                
+                # Convert masks dictionary to a list of its values for further processing
+                masks_list = list(masks.values())
+
+                # Get mask info for heuristics
+                masks_info = get_masks_info_nli(masks, feats, config=cfg)
                 heuristic_function = "mmesh"
                 bitmaps = bitmaps.to(cfg.device)
                 (
@@ -928,10 +974,10 @@ def main():
                     best_iou,
                     visited,
                 ) = algorithms_src.get_heuristic_scores(
-                    masks,
+                    masks_list,     #I check type of mask in algorithms, it is dict, so convert it to list
                     bitmaps,
                     segmentations_info=masks_info,
-                    heuristic=heuristic_function, # mmesh=none
+                    heuristic=heuristic_function, # mmesh
                     length=cfg.max_formula_length,                         #replace length=FLAGS.length to length=cfg.max_formula_length  
                     max_size_mask=cfg.get_max_mask_size(),
                     mask_shape=cfg.get_mask_shape(),

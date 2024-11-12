@@ -165,7 +165,8 @@ class Settings:
         n_sentence_feats=2000,
         data_file="data/analysis/snli_1.0_dev.feats",
         shuffle=False,  # Add shuffle with a default value
-        debug=False  # Add debug with a default value
+        debug=False,  # Add debug with a default value
+        feat_type="sentence"  # Default to "sentence" if unspecified
     ):  
         # Core settings
         self.index_subset = subset
@@ -185,6 +186,7 @@ class Settings:
         self.data_file = data_file
         self.shuffle = shuffle
         self.debug = debug
+        self.feat_type = feat_type
         
         # Root directories
         self.dir_datasets = root_datasets
