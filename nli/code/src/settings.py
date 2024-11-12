@@ -310,3 +310,15 @@ class Settings:
         print(f"Data File: {self.data_file}")
         print(f"Vector Path: {self.vecpath}")
         print(f"Results Directory: {self.get_results_directory()}")
+        
+    def get_info_directory(self):
+        """
+        Returns the directory where the info files for NLI tasks are stored.
+        """
+        # Customize the base directory and structure for NLI
+        return (
+            f"{self.__root_results}{self.dataset}/{self.index_subset}/"
+            f"{self.model}-info/"
+        )
+    
+    

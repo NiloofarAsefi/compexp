@@ -28,13 +28,13 @@ import data.analysis
 
 #My
 from sklearn.cluster import KMeans
-# from src import mask_utils as mask_utils_src
+#from src import mask_utils as mask_utils_src
 from src import activation_utils as activation_utils_src
 from src import algorithms as algorithms_src
-#from src import utils as utils_src
+from src import utils as utils_src
 from src import formula as F_src
 from src import settings as settings_src
-#from src import constants as C_src
+from src import constants as C_src
 
  
 
@@ -118,27 +118,33 @@ def get_neighbors(lemma):
     NEIGHBORS_CACHE[lemma] = nearest
     return nearest
 
-
 def get_mask(feats, f, dataset, feat_type):
     """
     Serializable/global version of get_mask for multiprocessing
     """
-    # Mask has been cached
+    print(type(f), f)
+    
+    # Handle case where `f` is a dictionary instead of a formula object
+    if isinstance(f, dict):
+        print("Dictionary encountered in get_mask; handling as cache")
+        return f  # Assuming `f` already contains the computed mask or values
+    
+    # Mask has been cached in `f`
     if f.mask is not None:
-        #print('get_mask_1')
+        print('get_mask_1')
         return f.mask
     if isinstance(f, FM.And):
-        #print('get_mask_2')
+        print('get_mask_2')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l & masks_r
     elif isinstance(f, FM.Or):
-        #print('get_mask_3')
+        print('get_mask_3')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l | masks_r
     elif isinstance(f, FM.Not):
-        #print('get_mask_4')
+        print('get_mask_4')
         masks_val = get_mask(feats, f.val, dataset, feat_type)
         return 1 - masks_val
     elif isinstance(f, FM.Neighbors):
@@ -158,7 +164,7 @@ def get_mask(feats, f, dataset, feat_type):
             # TODO: Just pass in the entire dataset.
             # The feature category should be lemma
             # Must call neighbors on a leaf
-            #print('get_mask_5')
+            print('get_mask_5')
             assert isinstance(f.val, FM.Leaf)
             ci = dataset.fis2cis[f.val.val]
             assert dataset.citos[ci] == "lemma"
@@ -183,7 +189,7 @@ def get_mask(feats, f, dataset, feat_type):
             ]
             return np.isin(feats["onehot"][:, ci], neighbors)
         else:
-            #print('get_mask_6')
+            print('get_mask_6')
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
             fname = dataset["itos"][fval]
@@ -204,7 +210,7 @@ def get_mask(feats, f, dataset, feat_type):
     elif isinstance(f, FM.Leaf):
         if feat_type == "word":
             # Get category
-            #print('get_mask_7')
+            print('get_mask_7')
             ci = dataset.fis2cis[f.val]
             cname = dataset.fis2cnames[f.val]
             if dataset.ctypes[cname] == "multi":
@@ -215,7 +221,7 @@ def get_mask(feats, f, dataset, feat_type):
             else:
                 return feats["onehot"][:, ci] == f.val
         else:
-            #print('get_mask_8')
+            print('get_mask_8')
             return feats[:, f.val]
     else:
         raise ValueError("Most be passed formula")
@@ -834,6 +840,10 @@ def main():
         n_sentence_feats=2000,
         data_file="data/analysis/snli_1.0_dev.feats"
     )
+    
+    info_directory = cfg.get_info_directory()     #define get_info_directory() in Setting class for NLI task and here
+    print("Info directory:", info_directory)
+    
 
     sparse_segmentation_directory = None # cfg.get_segmentation_directory()
     mask_shape = cfg.get_mask_shape()
@@ -907,9 +917,10 @@ def main():
                 formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
                 feat_type = "sentence"
                 print(formula)
-                masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
-                print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
-                masks_info = mask_utils.get_masks_info(masks, config=cfg)
+                #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
+                masks = get_mask(feats, formula, dataset, feat_type)
+                #print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
+                masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
                 heuristic_function = "mmesh"
                 bitmaps = bitmaps.to(cfg.device)
                 (
