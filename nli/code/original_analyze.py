@@ -8,10 +8,10 @@ import os
 from collections import Counter, defaultdict
 
 import numpy as np
-#import onmt.opts as opts
+import onmt.opts as opts
 import pandas as pd
 import torch
-#from onmt.utils.parse import ArgumentParser
+from onmt.utils.parse import ArgumentParser
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -26,61 +26,22 @@ import data
 import data.snli
 import data.analysis
 
-#My
-from sklearn.cluster import KMeans
-# from src import mask_utils as mask_utils_src
-from src import activation_utils as activation_utils_src
-from src import algorithms as algorithms_src
-#from src import utils as utils_src
-from src import formula as F_src
-from src import settings as settings_src
-#from src import constants as C_src
 
- 
+GLOBALS = {}
 
-
-# def save_with_acts(preds, acts, fname):
-#     preds_to_save = preds.copy()
-#     for i in range(acts.shape[1]):
-#         preds_to_save[str(i)] = acts[:, i] * 1
-#     preds_to_save.to_csv(fname, index=False)
 
 def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
-    # Step 1: Create a dictionary to store the new columns
-    new_columns = {str(i): acts[:, i] * 1 for i in range(acts.shape[1])}
-    
-    # Step 2: Concatenate all new columns at once
-    preds_to_save = pd.concat([preds_to_save, pd.DataFrame(new_columns)], axis=1)
-    
-    # Save to CSV
+    for i in range(acts.shape[1]):
+        preds_to_save[str(i)] = acts[:, i] * 1
     preds_to_save.to_csv(fname, index=False)
 
-
-
-# def load_vecs(path):
-#     vecs = []
-#     vecs_stoi = {}
-#     vecs_itos = {}
-#     with open(path, "r") as f:
-#         for line in f:
-#             tok, *nums = line.split(" ")
-#             nums = np.array(list(map(float, nums)))
-
-#             assert tok not in vecs_stoi
-#             new_n = len(vecs_stoi)
-#             vecs_stoi[tok] = new_n
-#             vecs_itos[new_n] = tok
-#             vecs.append(nums)
-#     vecs = np.array(vecs)
-#     return vecs, vecs_stoi, vecs_itos
 
 def load_vecs(path):
     vecs = []
     vecs_stoi = {}
     vecs_itos = {}
-    # Specify encoding='utf-8' to handle non-ASCII characters
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r") as f:
         for line in f:
             tok, *nums = line.split(" ")
             nums = np.array(list(map(float, nums)))
@@ -92,6 +53,7 @@ def load_vecs(path):
             vecs.append(nums)
     vecs = np.array(vecs)
     return vecs, vecs_stoi, vecs_itos
+
 
 # Load vectors
 VECS, VECS_STOI, VECS_ITOS = load_vecs(settings.VECPATH)
@@ -125,20 +87,16 @@ def get_mask(feats, f, dataset, feat_type):
     """
     # Mask has been cached
     if f.mask is not None:
-        #print('get_mask_1')
         return f.mask
     if isinstance(f, FM.And):
-        #print('get_mask_2')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l & masks_r
     elif isinstance(f, FM.Or):
-        #print('get_mask_3')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l | masks_r
     elif isinstance(f, FM.Not):
-        #print('get_mask_4')
         masks_val = get_mask(feats, f.val, dataset, feat_type)
         return 1 - masks_val
     elif isinstance(f, FM.Neighbors):
@@ -158,7 +116,6 @@ def get_mask(feats, f, dataset, feat_type):
             # TODO: Just pass in the entire dataset.
             # The feature category should be lemma
             # Must call neighbors on a leaf
-            #print('get_mask_5')
             assert isinstance(f.val, FM.Leaf)
             ci = dataset.fis2cis[f.val.val]
             assert dataset.citos[ci] == "lemma"
@@ -183,7 +140,6 @@ def get_mask(feats, f, dataset, feat_type):
             ]
             return np.isin(feats["onehot"][:, ci], neighbors)
         else:
-            #print('get_mask_6')
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
             fname = dataset["itos"][fval]
@@ -204,7 +160,6 @@ def get_mask(feats, f, dataset, feat_type):
     elif isinstance(f, FM.Leaf):
         if feat_type == "word":
             # Get category
-            #print('get_mask_7')
             ci = dataset.fis2cis[f.val]
             cname = dataset.fis2cnames[f.val]
             if dataset.ctypes[cname] == "multi":
@@ -215,7 +170,6 @@ def get_mask(feats, f, dataset, feat_type):
             else:
                 return feats["onehot"][:, ci] == f.val
         else:
-            #print('get_mask_8')
             return feats[:, f.val]
     else:
         raise ValueError("Most be passed formula")
@@ -262,19 +216,12 @@ OPS = defaultdict(
 
 
 def compute_iou(formula, acts, feats, dataset, feat_type="word"):
-    print("feats ", feats.shape) # 10000, 4087
     masks = get_mask(feats, formula, dataset, feat_type)
-    print('comput_iou + masks: ', masks.shape) # (10000,)
     # Cache mask
     formula.mask = masks
 
-    # Expand `acts` to match the length of `masks`
-    expanded_acts = np.tile(acts, (len(masks) // len(acts) + 1))[:len(masks)]
-    
     if settings.METRIC == "iou":
-        # size of masks is feats which is 10,000, but size of acts is 1024.
-        #comp_iou = iou(masks, acts)
-        comp_iou = iou(masks, expanded_acts)
+        comp_iou = iou(masks, acts)
     elif settings.METRIC == "precision":
         comp_iou = precision_score(masks, acts)
     elif settings.METRIC == "recall":
@@ -425,70 +372,6 @@ def compute_best_sentence_iou(args):
         "best_noncomp": best_noncomp,
     }
 
-def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
-#     (unit,) = args
-    
-#     if acts.sum() < settings.MIN_ACTS:
-#         print(' iffffffffff ', acts.sum(), settings.MIN_ACTS)
-#         null_f = (FM.Leaf(0), 0)
-#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
-
-    feats_to_search = list(range(feats.shape[1]))
-    formulas = {}
-    masks = {}
-    for fval in feats_to_search:
-        formula = FM.Leaf(fval)
-        print(' compute formulaaaaa: ', formula)
-        formulas[formula] = compute_iou(
-            formula, acts, feats, dataset, feat_type="sentence"
-        )
-
-        for op, negate in OPS["lemma"]:
-            # FIXME: Don't evaluate on neighbors if they don't exist
-            new_formula = formula
-            if negate:
-                new_formula = FM.Not(new_formula)
-            new_formula = op(new_formula)
-            new_iou = compute_iou(
-                new_formula, acts, feats, dataset, feat_type="sentence"
-            )
-            formulas[new_formula] = new_iou
-
-    nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
-    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-    best_noncomp = Counter(formulas).most_common(1)[0]
-
-    for i in range(settings.MAX_FORMULA_LENGTH - 1):
-        new_formulas = {}
-        for formula in formulas:
-            # Generic binary ops
-            for feat in nonzero_iou:
-                for op, negate in OPS["all"]:
-                    if not isinstance(feat, FM.F):
-                        new_formula = FM.Leaf(feat)
-                    else:
-                        new_formula = feat
-                    if negate:
-                        new_formula = FM.Not(new_formula)
-                    new_formula = op(formula, new_formula)
-                    new_iou = compute_iou(
-                        new_formula, acts, feats, dataset, feat_type="sentence"
-                    )
-                    new_formulas[new_formula] = new_iou
-
-        formulas.update(new_formulas)
-        # Trim the beam
-        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-
-    best = Counter(formulas).most_common(1)[0]
-    report = {
-        "unit": unit,
-        "best": best,
-        "best_noncomp": best_noncomp,
-    }
-    print('output compute_best_sentence_iou_niloo ', formulas)
-    return formulas
-
 
 def pad_collate(batch, sort=True):
     src, src_feats, src_multifeats, src_len, idx = zip(*batch)
@@ -539,7 +422,6 @@ def extract_features(
 
     all_srcs = []
     all_states = []
-    all_states_tensor = []
     all_feats = []
     all_multifeats = []
     all_idxs = []
@@ -572,12 +454,11 @@ def extract_features(
             list(np.transpose(pairs(src_multifeats).cpu().numpy(), (1, 2, 0, 3)))
         )
         all_states.extend(list(final_reprs.cpu().numpy()))
-        all_states_tensor.extend(list(final_reprs.cpu()))
         all_idxs.extend(list(pairs(idx).cpu().numpy()))
 
     all_feats = {"onehot": all_feats, "multi": all_multifeats}
 
-    return all_srcs, all_states, all_feats, all_idxs, all_states_tensor
+    return all_srcs, all_states, all_feats, all_idxs
 
 
 def get_quantiles(feats, alpha):
@@ -592,8 +473,8 @@ def quantile_features(feats):
     quantiles = get_quantiles(feats, settings.ALPHA)
     return feats > quantiles[np.newaxis]
 
-#My, add cluster labels to search_feature:
-def search_feats(acts, states, feats, weights, dataset, cluster_labels):
+
+def search_feats(acts, states, feats, weights, dataset):
     rfile = os.path.join(settings.RESULT, "result.csv")
     if os.path.exists(rfile):
         print(f"Loading cached {rfile}")
@@ -657,7 +538,6 @@ def search_feats(acts, states, feats, weights, dataset, cluster_labels):
                 "w_entail": entail_weight,
                 "w_neutral": neutral_weight,
                 "w_contra": contra_weight,
-                "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
             }
             records.append(r)
             pbar.update()
@@ -813,259 +693,64 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
 
 
 def main():
-    # Initialize `cfg` with the required parameters for your NLI task
-    cfg = settings_src.Settings(
-        subset="train",
-        model="bowman_snli/6.pth",
-        model_type ="bowman",
-        root_models="models/",
-        pretrained="snli",
-        num_clusters=5,
-        beam_limit=10,
-        device="cuda",  # Or "cpu" based on availability
-        dataset="snli",
-        root_datasets="data/dataset/",
-        root_results="data/results/",
-        metric="iou",
-        max_formula_length=5,
-        complexity_penalty=1.00,
-        parallel=4,
-        random_weights=False,
-        n_sentence_feats=2000,
-        data_file="data/analysis/snli_1.0_dev.feats"
-    )
-
-    sparse_segmentation_directory = None # cfg.get_segmentation_directory()
-    mask_shape = cfg.get_mask_shape()
-    print("Mask Shape:", mask_shape)
-    
-    
-    os.makedirs(cfg.get_results_directory(), exist_ok=True)
+    os.makedirs(settings.RESULT, exist_ok=True)
 
     print("Loading model/vocab")
     model, dataset = data.snli.load_for_analysis(
-        cfg.get_model_file_path(),
-        cfg.data_file,
-        model_type=cfg.model_type,
-        cuda=cfg.device == "cuda",
+        settings.MODEL,
+        settings.DATA,
+        model_type=settings.MODEL_TYPE,
+        cuda=settings.CUDA,
     )
 
     # Last model weight
-    if cfg.model_type == "minimal":
+    if settings.MODEL_TYPE == "minimal":
         weights = model.mlp.weight.t().detach().cpu().numpy()
     else:
         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
 
     print("Extracting features")
-    toks, states, feats, idxs, all_states_tensor = extract_features(
+    toks, states, feats, idxs = extract_features(
         model,
         dataset,
     )
+
     print("Computing quantiles")
     acts = quantile_features(states)
+
+    print("Extracting sentence token features")
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
-    
-#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
-    
-    
-    # Initialize masks as an empty list or tensor
-    
-    # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
-#     masks = []
-#     masks_info = None  # 
-#     heuristic_function = "none"
-    
-    # CE has states as the activations, and CCE has activations.
-    # activations (line 132) in CCE = states (1024 units) in CE
-    print("Niloo")
-    activations = all_states_tensor
-    selected_units = [80, 200, 400]
-    for unit in selected_units:
-        unit_activations = activations[unit]
-        
+    print("Mask search")
+    records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset)
 
-        activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
-        
-        for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
-            dir_current_results = (
-                f"{cfg.get_results_directory()}/"
-                + f"{cfg.model}/{unit}/{activation_range}"
-            )
-            if not os.path.exists(dir_current_results):
-                os.makedirs(dir_current_results)
-            file_algo_results = f"{dir_current_results}/" + f"{cfg.max_formula_length}.pickle"
+    print("Mask search")
+    records = search_feats(acts, states, feats, weights, dataset)
 
-            if not os.path.exists(file_algo_results):
+    print("Load predictions")
+    mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
+    dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
+    predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
+    # Add the feature activations so we can do correlation
+    preds = pd.read_csv(predf)
 
-                # Compute binary masks
-                bitmaps = activation_utils_src.compute_bitmaps(
-                    unit_activations,
-                    activation_range,
-                    mask_shape=mask_shape,
-                )
-                print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
-                formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
-                feat_type = "sentence"
-                print(formula)
-                masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
-                print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
-                masks_info = mask_utils.get_masks_info(masks, config=cfg)
-                heuristic_function = "mmesh"
-                bitmaps = bitmaps.to(cfg.device)
-                (
-                    best_label,
-                    best_iou,
-                    visited,
-                ) = algorithms_src.get_heuristic_scores(
-                    masks,
-                    bitmaps,
-                    segmentations_info=masks_info,
-                    heuristic=heuristic_function, # mmesh=none
-                    length=cfg.max_formula_length,                         #replace length=FLAGS.length to length=cfg.max_formula_length  
-                    max_size_mask=cfg.get_max_mask_size(),
-                    mask_shape=cfg.get_mask_shape(),
-                    device=cfg.device,
-                )
-                with open(file_algo_results, "wb") as file:
-                    pickle.dump((best_label, best_iou, visited), file)
-            else:
-                with open(file_algo_results, "rb") as file:
-                    best_label, best_iou, visited = pickle.load(file)
-            string_label = F_src.get_formula_str(best_label, dataset.labels)
-            print(
-                f"Parsed Unit: {unit} - "
-                f"Cluster: {cluster_index} - "
-                f"Best Label: {string_label} - "
-                f"Best IoU: {round(best_iou,3)} - "
-                f"Visited: {visited}"
-            )
+    save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
 
-# def main():
-#     os.makedirs(settings.RESULT, exist_ok=True)
+    print("Visualizing features")
+    from vis import sentence_report
 
-#     print("Loading model/vocab")
-#     model, dataset = data.snli.load_for_analysis(
-#         settings.MODEL,
-#         settings.DATA,
-#         model_type=settings.MODEL_TYPE,
-#         cuda=settings.CUDA,
-#     )
-
-#     # Last model weight
-#     if settings.MODEL_TYPE == "minimal":
-#         weights = model.mlp.weight.t().detach().cpu().numpy()
-#     else:
-#         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
-
-#     print("Extracting features")
-#     toks, states, feats, idxs, all_states_tensor = extract_features(
-#         model,
-#         dataset,
-#     )
-#     # CE has states as the activations, and CCE has activations.
-#     # activations (line 132) in CCE = states (1024 units) in CE
-#     print("Niloo")
-#     activations = all_states_tensor
-#     # the rest of the code after this point should be similar to CCE (not CE).
-#     selected_units = [80, 200, 400]
-#     for unit in selected_units: # this is line 148 of CCE.
-#         unit_activations = activations[unit]
-#         # Error: unit_activations should be numpy, but compute_activation_ranges expects torch.tensor.
-#         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, settings.NUM_CLUSTERS)
-        
-#         # Loop over all the activation ranges
-#         for cluster_index, activation_range in enumerate(
-#             sorted(activation_ranges)
-#         ):
-#             dir_current_results = (
-#                     f"{cfg.get_results_directory()}/"
-#                     + f"{layer_name}/{unit}/{activation_range}"
-#                 )
-#             if not os.path.exists(dir_current_results):
-#                 os.makedirs(dir_current_results)
-#             file_algo_results = (
-#                 f"{dir_current_results}/" + f"{FLAGS.length}.pickle"
-#             )
-#             if not os.path.exists(file_algo_results):
-#                 # Compute binary masks
-#                 bitmaps = activation_utils_src.compute_bitmaps(
-#                     unit_activations,
-#                     activation_range,
-#                     mask_shape=mask_shape,
-#                 )
-#                 bitmaps = bitmaps.to(cfg.device)
-#                 (
-#                     best_label,
-#                     best_iou,
-#                     visited,
-#                 ) = algorithms_src.get_heuristic_scores(
-#                     masks,
-#                     bitmaps,
-#                     segmentations_info=masks_info,
-#                     heuristic="mmesh",
-#                     length=FLAGS.length,
-#                     max_size_mask=cfg.get_max_mask_size(),
-#                     mask_shape=cfg.get_mask_shape(),
-#                     device=cfg.device,
-#                 )
-#                 with open(file_algo_results, "wb") as file:
-#                     pickle.dump((best_label, best_iou, visited), file)
-#             else:
-#                 with open(file_algo_results, "rb") as file:
-#                     best_label, best_iou, visited = pickle.load(file)
-#             string_label = F_src.get_formula_str(best_label, dataset.labels)
-#             print(
-#                 f"Parsed Unit: {unit} - "
-#                 + f"Cluster: {cluster_index} - "
-#                 + f"Best Label: {string_label} - "
-#                 + f"Best IoU: {round(best_iou,3)} - "
-#                 + f"Visited: {visited}"
-#             )
-
-
-#     print("Computing quantiles")
-#     acts = quantile_features(states)
-
-#     #My Add clustering by KMeans after computing quantiles and before search_feat, beacuse the cluster labels would be ready to pass to search_feat.
-#     # Clustering: Fit k-means on activations
-
-#     print("Clustering activations")
-#     num_clusters = settings.NUM_CLUSTERS  # Set number of clusters in settings.py s
-
-#     kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(acts)
-#     cluster_labels = kmeans.labels_  # Get cluster labels for each unit
-
-
-#     print("Extracting sentence token features")
-#     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
-#     print("Mask search")
-#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
-
-#     print("Load predictions")
-#     mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
-#     dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
-#     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
-#     # Add the feature activations so we can do correlation
-#     preds = pd.read_csv(predf)
-
-#     save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
-
-#     print("Visualizing features")
-#     from vis import sentence_report
-
-#     sentence_report.make_html(
-#         records,
-#         # Features
-#         toks,
-#         states,
-#         (tok_feats, tok_feats_vocab),
-#         idxs,
-#         preds,
-#         # General stuff
-#         weights,
-#         dataset,
-#         settings.RESULT,
-#     )
+    sentence_report.make_html(
+        records,
+        # Features
+        toks,
+        states,
+        (tok_feats, tok_feats_vocab),
+        idxs,
+        preds,
+        # General stuff
+        weights,
+        dataset,
+        settings.RESULT,
+    )
 
 
 if __name__ == "__main__":

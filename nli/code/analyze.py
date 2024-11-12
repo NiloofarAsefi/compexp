@@ -8,10 +8,10 @@ import os
 from collections import Counter, defaultdict
 
 import numpy as np
-import onmt.opts as opts
+#import onmt.opts as opts
 import pandas as pd
 import torch
-from onmt.utils.parse import ArgumentParser
+#from onmt.utils.parse import ArgumentParser
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -26,22 +26,35 @@ import data
 import data.snli
 import data.analysis
 
+#My
+from sklearn.cluster import KMeans
 
-GLOBALS = {}
 
+
+# def save_with_acts(preds, acts, fname):
+#     preds_to_save = preds.copy()
+#     for i in range(acts.shape[1]):
+#         preds_to_save[str(i)] = acts[:, i] * 1
+#     preds_to_save.to_csv(fname, index=False)
 
 def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
-    for i in range(acts.shape[1]):
-        preds_to_save[str(i)] = acts[:, i] * 1
+    # Step 1: Create a dictionary to store the new columns
+    new_columns = {str(i): acts[:, i] * 1 for i in range(acts.shape[1])}
+    
+    # Step 2: Concatenate all new columns at once
+    preds_to_save = pd.concat([preds_to_save, pd.DataFrame(new_columns)], axis=1)
+    
+    # Save to CSV
     preds_to_save.to_csv(fname, index=False)
+
 
 
 def load_vecs(path):
     vecs = []
     vecs_stoi = {}
     vecs_itos = {}
-    with open(path, "r") as f:
+    with open(path, "r", encoding='utf-8') as f:
         for line in f:
             tok, *nums = line.split(" ")
             nums = np.array(list(map(float, nums)))
@@ -219,9 +232,10 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
     masks = get_mask(feats, formula, dataset, feat_type)
     # Cache mask
     formula.mask = masks
-
+    
     if settings.METRIC == "iou":
         comp_iou = iou(masks, acts)
+        print("Niloooo My know the size for CE", masks.shape, acts.shape())
     elif settings.METRIC == "precision":
         comp_iou = precision_score(masks, acts)
     elif settings.METRIC == "recall":
@@ -473,8 +487,8 @@ def quantile_features(feats):
     quantiles = get_quantiles(feats, settings.ALPHA)
     return feats > quantiles[np.newaxis]
 
-
-def search_feats(acts, states, feats, weights, dataset):
+#My, add cluster labels to search_feature:
+def search_feats(acts, states, feats, weights, dataset, cluster_labels):
     rfile = os.path.join(settings.RESULT, "result.csv")
     if os.path.exists(rfile):
         print(f"Loading cached {rfile}")
@@ -538,6 +552,7 @@ def search_feats(acts, states, feats, weights, dataset):
                 "w_entail": entail_weight,
                 "w_neutral": neutral_weight,
                 "w_contra": contra_weight,
+                "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
             }
             records.append(r)
             pbar.update()
@@ -718,13 +733,20 @@ def main():
     print("Computing quantiles")
     acts = quantile_features(states)
 
+    #My Add clustering by KMeans after computing quantiles and before search_feat, beacuse the cluster labels would be ready to pass to search_feat.
+    # Clustering: Fit k-means on activations
+    
+    print("Clustering activations")
+    num_clusters = settings.NUM_CLUSTERS  # Set number of clusters in settings.py s
+    
+    kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(acts)
+    cluster_labels = kmeans.labels_  # Get cluster labels for each unit
+    
+    
     print("Extracting sentence token features")
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
     print("Mask search")
-    records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset)
-
-    print("Mask search")
-    records = search_feats(acts, states, feats, weights, dataset)
+    records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
 
     print("Load predictions")
     mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
