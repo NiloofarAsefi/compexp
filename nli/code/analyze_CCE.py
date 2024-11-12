@@ -429,7 +429,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
 #     (unit,) = args
     
 #     if acts.sum() < settings.MIN_ACTS:
-#         print(' iffffffffff ', acts.sum(), settings.MIN_ACTS)
+#         print(acts.sum(), settings.MIN_ACTS)
 #         null_f = (FM.Leaf(0), 0)
 #         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
 
