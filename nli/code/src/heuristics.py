@@ -231,6 +231,9 @@ def mmesh_heuristic(formula, heuristic_info, *, num_hits, max_size_mask):
         formula.right, unary_areas, enneary_areas, max_size_mask
     )
 
+    
+    print("left_and_fires_areas:", left_and_fires_areas, "formula_in:", formula_in)
+
     left_intersection_area = left_and_fires_areas * formula_in
     right_intersection_area = right_and_fires_areas * formula_in
 

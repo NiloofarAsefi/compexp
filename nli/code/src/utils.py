@@ -8,6 +8,7 @@ import torch
 import numpy as np
 from numpy.random import RandomState
 import scipy.sparse as sparse
+from scipy.sparse import csr_matrix
 
 
 def set_seed(seed: int) -> RandomState:
@@ -60,14 +61,31 @@ def torch_to_sparse(vector):
     return sparse.csr_matrix(vector.numpy())
 
 
+# def sparse_to_torch(vector):
+#     """
+#     Convert a sparse matrix to a torch tensor.
+
+#     Args:
+#         vector (scipy.sparse.csr_matrix): sparse matrix to convert
+
+#     Returns:
+#         torch.Tensor: tensor
+#     """
+#     return torch.from_numpy(vector.toarray())
+               
 def sparse_to_torch(vector):
     """
-    Convert a sparse matrix to a torch tensor.
+    Convert a sparse matrix or ndarray to a torch tensor.
 
     Args:
-        vector (scipy.sparse.csr_matrix): sparse matrix to convert
+        vector (scipy.sparse.csr_matrix or numpy.ndarray): matrix to convert
 
     Returns:
         torch.Tensor: tensor
     """
-    return torch.from_numpy(vector.toarray())
+    if isinstance(vector, csr_matrix):
+        return torch.from_numpy(vector.toarray())  # Convert sparse matrix to dense array
+    elif isinstance(vector, np.ndarray):
+        return torch.from_numpy(vector)  # Directly convert if already ndarray
+    else:
+        raise TypeError(f"Expected csr_matrix or ndarray, but got {type(vector)}")

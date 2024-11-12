@@ -35,7 +35,7 @@ from src import utils as utils_src
 from src import formula as F_src
 from src import settings as settings_src
 from src import constants as C_src
-
+from scipy.sparse import csr_matrix  # Import if sparse matrices are required
  
 
 
@@ -155,14 +155,23 @@ def get_neighbors(lemma):
 def get_mask(feats, f, dataset, feat_type):
     """
     Serializable/global version of get_mask for multiprocessing
-    """
+    """  
     print(type(f), f)
+    
+    # Handle cases where `f` is a list, which indicates it may already contain masks
+    if isinstance(f, list):
+        print("List of masks encountered; validating types")
+        for mask in f:
+            if not (isinstance(mask, np.ndarray) or isinstance(mask, csr_matrix)):
+                # Previous IndentationError occurred here
+                print(f"Unexpected mask type: {type(mask)} in list of masks")
+        return f  # Return the list assuming it already contains valid masks
     
     # Handle case where `f` is a dictionary instead of a formula object
     if isinstance(f, dict):
         print("Dictionary encountered in get_mask; handling as cache")
         return f  # Assuming `f` already contains the computed mask or values
-    
+
     # Mask has been cached in `f`
     if f.mask is not None:
         print('get_mask_1')
@@ -465,26 +474,84 @@ def compute_best_sentence_iou(args):
         "best_noncomp": best_noncomp,
     }
 
-def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
-#     (unit,) = args
+# def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
+# #  #   (unit,) = args
     
-#     if acts.sum() < settings.MIN_ACTS:
-#         print(acts.sum(), settings.MIN_ACTS)
-#         null_f = (FM.Leaf(0), 0)
-#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+# #   #  if acts.sum() < settings.MIN_ACTS:
+# #  #       print(acts.sum(), settings.MIN_ACTS)
+# #  #       null_f = (FM.Leaf(0), 0)
+# # #       return {"unit": unit, "best": null_f, "best_noncomp": null_f}
 
+#     feats_to_search = list(range(feats.shape[1]))
+#     formulas = {}
+#     masks = {}
+#     for fval in feats_to_search:
+#         formula = FM.Leaf(fval)
+#         print(' compute formulaaaaa: ', formula)
+#         formulas[formula] = compute_iou(
+#             formula, acts, feats, dataset, feat_type="sentence"
+#         )
+
+#         for op, negate in OPS["lemma"]:
+#             # FIXME: Don't evaluate on neighbors if they don't exist
+#             new_formula = formula
+#             if negate:
+#                 new_formula = FM.Not(new_formula)
+#             new_formula = op(new_formula)
+#             new_iou = compute_iou(
+#                 new_formula, acts, feats, dataset, feat_type="sentence"
+#             )
+#             formulas[new_formula] = new_iou
+
+#     nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
+#     formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+#     best_noncomp = Counter(formulas).most_common(1)[0]
+
+#     for i in range(settings.MAX_FORMULA_LENGTH - 1):
+#         new_formulas = {}
+#         for formula in formulas:
+#             # Generic binary ops
+#             for feat in nonzero_iou:
+#                 for op, negate in OPS["all"]:
+#                     if not isinstance(feat, FM.F):
+#                         new_formula = FM.Leaf(feat)
+#                     else:
+#                         new_formula = feat
+#                     if negate:
+#                         new_formula = FM.Not(new_formula)
+#                     new_formula = op(formula, new_formula)
+#                     new_iou = compute_iou(
+#                         new_formula, acts, feats, dataset, feat_type="sentence"
+#                     )
+#                     new_formulas[new_formula] = new_iou
+
+#         formulas.update(new_formulas)
+#         # Trim the beam
+#         formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+
+#     best = Counter(formulas).most_common(1)[0]
+#     report = {
+#         "unit": unit,
+#         "best": best,
+#         "best_noncomp": best_noncomp,
+#     }
+#     print('output compute_best_sentence_iou_niloo ', formulas)
+#     return formulas
+
+
+def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     feats_to_search = list(range(feats.shape[1]))
     formulas = {}
-    masks = {}
+    masks = []
+    
     for fval in feats_to_search:
         formula = FM.Leaf(fval)
-        print(' compute formulaaaaa: ', formula)
-        formulas[formula] = compute_iou(
+        iou_score = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
         )
+        formulas[formula] = iou_score
 
         for op, negate in OPS["lemma"]:
-            # FIXME: Don't evaluate on neighbors if they don't exist
             new_formula = formula
             if negate:
                 new_formula = FM.Not(new_formula)
@@ -496,12 +563,10 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
 
     nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
     formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-    best_noncomp = Counter(formulas).most_common(1)[0]
 
     for i in range(settings.MAX_FORMULA_LENGTH - 1):
         new_formulas = {}
         for formula in formulas:
-            # Generic binary ops
             for feat in nonzero_iou:
                 for op, negate in OPS["all"]:
                     if not isinstance(feat, FM.F):
@@ -517,18 +582,17 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
                     new_formulas[new_formula] = new_iou
 
         formulas.update(new_formulas)
-        # Trim the beam
         formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
 
     best = Counter(formulas).most_common(1)[0]
-    report = {
-        "unit": unit,
-        "best": best,
-        "best_noncomp": best_noncomp,
-    }
-    print('output compute_best_sentence_iou_niloo ', formulas)
-    return formulas
 
+    # Generate and store binary masks for each formula
+    for formula in formulas:
+        mask = get_mask(feats, formula, dataset, feat_type="sentence")
+        masks.append(mask)  # Store directly as dense mask
+
+    print('output compute_best_sentence_iou_niloo (masks):', masks)
+    return masks
 
 def pad_collate(batch, sort=True):
     src, src_feats, src_multifeats, src_len, idx = zip(*batch)
@@ -962,9 +1026,15 @@ def main():
                  # Generate masks based on computed formula
                 masks = get_mask(feats, formula, dataset, feat_type)
                 
-                # Convert masks dictionary to a list of its values for further processing
-                masks_list = list(masks.values())
+#                 # Convert masks dictionary to a list of its values for further processing
+#                 masks_list = list(masks.values())
+                masks_list = masks
 
+                # Validate masks_list
+                for mask in masks_list:
+                    if not (isinstance(mask, np.ndarray) or isinstance(mask, csr_matrix)):
+                        print(f"Unexpected mask type: {type(mask)} in masks_list") 
+                        
                 # Get mask info for heuristics
                 masks_info = get_masks_info_nli(masks, feats, config=cfg)
                 heuristic_function = "mmesh"
