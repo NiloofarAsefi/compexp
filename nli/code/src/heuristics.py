@@ -231,22 +231,25 @@ def mmesh_heuristic(formula, heuristic_info, *, num_hits, max_size_mask):
         formula.right, unary_areas, enneary_areas, max_size_mask
     )
 
-    # Check if left_and_fires_areas is None before using it in multiplication
     if left_and_fires_areas is None:
         print("Warning: left_and_fires_areas is None; setting default value.")
-        left_and_fires_areas = 0  # or another appropriate default value
-   
-    
-    print("left_and_fires_areas:", left_and_fires_areas, "formula_in:", formula_in)
+        left_and_fires_areas = torch.tensor(0)  # Change here: set default as a tensor
 
+    # Ensure left_intersection_area is a tensor
     left_intersection_area = left_and_fires_areas * formula_in
-    
+    if not isinstance(left_intersection_area, torch.Tensor):
+        left_intersection_area = torch.tensor(left_intersection_area)  # Change here: convert to tensor if needed
+
+    # Check if right_and_fires_areas is None before using it in multiplication
     if right_and_fires_areas is None:
         print("Warning: right_and_fires_areas is None; setting default value.")
-        right_and_fires_areas = 0
+        right_and_fires_areas = torch.tensor(0)  # Change here: set default as a tensor
 
-
+    # Ensure right_intersection_area is a tensor
     right_intersection_area = right_and_fires_areas * formula_in
+    if not isinstance(right_intersection_area, torch.Tensor):
+        right_intersection_area = torch.tensor(right_intersection_area)  # Change here: convert to tensor if needed
+
 
     # In case of scene formula, we can compute the exact formula mask
     # and in the OR case, we can compute the exact intersection

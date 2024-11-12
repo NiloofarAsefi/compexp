@@ -10,6 +10,7 @@ from src import mask_utils
 from src import heuristics
 from src import utils
 from src import metrics
+from collections import Counter
 
 
 def compute_next_search_space(formulas, candidate_labels):
@@ -281,6 +282,16 @@ def perform_heuristic_search(
 
         # Trim the beam
         beam = dict(Counter(beam).most_common(beam_size))
+       
+
+    # Check if `beam` is not empty before proceeding
+    if beam:
+        top_result = Counter(beam).most_common(1)[0]
+    else:
+        
+        print("Warning: Beam is empty, no results to process.")
+        top_result = None  # or handle this case as needed
+    
     top_result = Counter(beam).most_common(1)[0]
 
     best_iou = top_result[1].item()
