@@ -231,10 +231,21 @@ def mmesh_heuristic(formula, heuristic_info, *, num_hits, max_size_mask):
         formula.right, unary_areas, enneary_areas, max_size_mask
     )
 
+    # Check if left_and_fires_areas is None before using it in multiplication
+    if left_and_fires_areas is None:
+        print("Warning: left_and_fires_areas is None; setting default value.")
+        left_and_fires_areas = 0  # or another appropriate default value
+   
     
     print("left_and_fires_areas:", left_and_fires_areas, "formula_in:", formula_in)
 
     left_intersection_area = left_and_fires_areas * formula_in
+    
+    if right_and_fires_areas is None:
+        print("Warning: right_and_fires_areas is None; setting default value.")
+        right_and_fires_areas = 0
+
+
     right_intersection_area = right_and_fires_areas * formula_in
 
     # In case of scene formula, we can compute the exact formula mask
