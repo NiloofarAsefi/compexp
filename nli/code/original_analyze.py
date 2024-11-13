@@ -8,10 +8,10 @@ import os
 from collections import Counter, defaultdict
 
 import numpy as np
-import onmt.opts as opts
+#import onmt.opts as opts
 import pandas as pd
 import torch
-from onmt.utils.parse import ArgumentParser
+#from onmt.utils.parse import ArgumentParser
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -30,12 +30,16 @@ import data.analysis
 GLOBALS = {}
 
 
+# def save_with_acts(preds, acts, fname):
+#     preds_to_save = preds.copy()
+#     for i in range(acts.shape[1]):
+#         preds_to_save[str(i)] = acts[:, i] * 1
+#     preds_to_save.to_csv(fname, index=False)
+
 def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
-    for i in range(acts.shape[1]):
-        preds_to_save[str(i)] = acts[:, i] * 1
-    preds_to_save.to_csv(fname, index=False)
-
+    # Step 1: Create a dictionary to store the new columns
+    new_columns = {str(i): acts[:, i] * 1 for i in range(acts.shape[1])}
 
 def load_vecs(path):
     vecs = []

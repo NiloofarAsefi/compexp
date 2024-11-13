@@ -230,6 +230,7 @@ OPS = defaultdict(
 
 def compute_iou(formula, acts, feats, dataset, feat_type="word"):
     masks = get_mask(feats, formula, dataset, feat_type)
+    print('comput_iou + masks: ', masks.shape) #For CE and analyze script also the size of masks is 10000)
     # Cache mask
     formula.mask = masks
     
@@ -486,7 +487,7 @@ def quantile_features(feats):
 
     quantiles = get_quantiles(feats, settings.ALPHA)
     return feats > quantiles[np.newaxis]
-
+GLOBALS = {}
 #My, add cluster labels to search_feature:
 def search_feats(acts, states, feats, weights, dataset, cluster_labels):
     rfile = os.path.join(settings.RESULT, "result.csv")

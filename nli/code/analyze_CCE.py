@@ -174,20 +174,16 @@ def get_mask(feats, f, dataset, feat_type):
 
     # Mask has been cached in `f`
     if f.mask is not None:
-        print('get_mask_1')
         return f.mask
     if isinstance(f, FM.And):
-        print('get_mask_2')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l & masks_r
     elif isinstance(f, FM.Or):
-        print('get_mask_3')
         masks_l = get_mask(feats, f.left, dataset, feat_type)
         masks_r = get_mask(feats, f.right, dataset, feat_type)
         return masks_l | masks_r
     elif isinstance(f, FM.Not):
-        print('get_mask_4')
         masks_val = get_mask(feats, f.val, dataset, feat_type)
         return 1 - masks_val
     elif isinstance(f, FM.Neighbors):
@@ -207,7 +203,6 @@ def get_mask(feats, f, dataset, feat_type):
             # TODO: Just pass in the entire dataset.
             # The feature category should be lemma
             # Must call neighbors on a leaf
-            print('get_mask_5')
             assert isinstance(f.val, FM.Leaf)
             ci = dataset.fis2cis[f.val.val]
             assert dataset.citos[ci] == "lemma"
@@ -232,7 +227,6 @@ def get_mask(feats, f, dataset, feat_type):
             ]
             return np.isin(feats["onehot"][:, ci], neighbors)
         else:
-            print('get_mask_6')
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
             fname = dataset["itos"][fval]
@@ -253,7 +247,6 @@ def get_mask(feats, f, dataset, feat_type):
     elif isinstance(f, FM.Leaf):
         if feat_type == "word":
             # Get category
-            print('get_mask_7')
             ci = dataset.fis2cis[f.val]
             cname = dataset.fis2cnames[f.val]
             if dataset.ctypes[cname] == "multi":
@@ -264,7 +257,6 @@ def get_mask(feats, f, dataset, feat_type):
             else:
                 return feats["onehot"][:, ci] == f.val
         else:
-            print('get_mask_8')
             return feats[:, f.val]
     else:
         raise ValueError("Most be passed formula")
@@ -317,13 +309,13 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
     # Cache mask
     formula.mask = masks
 
-    # Expand `acts` to match the length of `masks`
-    expanded_acts = np.tile(acts, (len(masks) // len(acts) + 1))[:len(masks)]
+#     # Expand `acts` to match the length of `masks`
+#     expanded_acts = np.tile(acts, (len(masks) // len(acts) + 1))[:len(masks)]
     
     if settings.METRIC == "iou":
         # size of masks is feats which is 10,000, but size of acts is 1024.
         #comp_iou = iou(masks, acts)
-        comp_iou = iou(masks, expanded_acts)
+        comp_iou = iou(masks, acts)
     elif settings.METRIC == "precision":
         comp_iou = precision_score(masks, acts)
     elif settings.METRIC == "recall":
@@ -981,20 +973,22 @@ def main():
     
     
     # Initialize masks as an empty list or tensor
-    
-    # Define masks_info as None, as segmentation info= masks_info and segmentations inforrmation is not used for NLI
-#     masks = []
+# 
 #     masks_info = None  # 
 #     heuristic_function = "none"
     
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
+    # each neuron (1024) should have multiple values for different concepts. 
     print("Niloo")
-    activations = all_states_tensor
+    activations = torch.stack(all_states_tensor, dim=0)                           
+    #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
+    print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
     selected_units = [80, 200, 400]
     for unit in selected_units:
-        unit_activations = activations[unit]
-        
+        unit_activations = activations[:, unit]  
+        unit_activations = unit_activations.unsqueeze(1)
+        print("unit activations", unit_activations.shape)
 
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
