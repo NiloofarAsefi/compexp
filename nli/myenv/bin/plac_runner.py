@@ -1,4 +1,4 @@
-#!/workspace/compexp/nli/myenv/bin/python3
+#!/workspace/compexp/nli/myenv/bin/python
 from __future__ import with_statement
 import os
 import sys
