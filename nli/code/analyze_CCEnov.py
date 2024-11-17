@@ -535,7 +535,7 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
 def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
-    print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
+#     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
     if acts.sum() < settings.MIN_ACTS:
         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
@@ -595,7 +595,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
         mask = get_mask(feats, formula, dataset, feat_type="sentence")
         masks.append(mask)  # Store directly as dense mask
 
-    print('output compute_best_sentence_iou_niloo (masks):', masks)
+#     print('output compute_best_sentence_iou_niloo (masks):', masks)
     return masks
 
 def pad_collate(batch, sort=True):
@@ -996,22 +996,22 @@ def main():
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
     # each neuron (1024) should have multiple values for different concepts. 
-    print("Niloo")
+#     print("Niloo")
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
-    print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
-    selected_units = [0, 400]
+#     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
+    selected_units = [0]
     for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
-        print("unit activations", unit_activations.shape)
+#         print("unit activations", unit_activations.shape)
         # for unit 80, everything was zero. 
         # Check for non-zero values directly in `unit_activations`
         print(f"Checking activations for unit {unit}")
-        print("First few entries of unit_activations:", unit_activations[:5])  #it shows values of zero
-        print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations)) #zero
-        print("Mean of unit_activations:", unit_activations.mean().item()) # zero
-        print("Max of unit_activations:", unit_activations.max().item()) #all of the have zero values
+#         print("First few entries of unit_activations:", unit_activations[:5]) 
+#         print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations))
+#         print("Mean of unit_activations:", unit_activations.mean().item()) 
+#         print("Max of unit_activations:", unit_activations.max().item())
 
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
@@ -1033,31 +1033,30 @@ def main():
                     activation_range,
                     mask_shape=mask_shape,
                 )
-                print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
+#                 print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
                 formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
                 feat_type = "sentence"
-                print(formula)
+#                 print("formula",formula)
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
                 #print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
                 #masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
                 
                  # Generate masks based on computed formula
                     
-                print(" print masks ... ")
+#                 print(" print masks ... ")
                 masks = get_mask(feats, formula, dataset, feat_type)
                 
-#                 # Convert masks dictionary to a list of its values for further processing
-#                 masks_list = list(masks.values())
                 masks_list = masks
-                print("masks_list ", len(masks_list))
+#                 masks_list = [torch.from_numpy(x) for x in masks_list]
+#                 print("masks_list ", len(masks_list), len(formula), bitmaps.shape)
 
-                # Validate masks_list
-                for mask in masks_list:
-                    if not (isinstance(mask, np.ndarray) or isinstance(mask, csr_matrix)):
-                        print(f"Unexpected mask type: {type(mask)} in masks_list") 
+#                 # Validate masks_list
+#                 for mask in masks_list:
+#                     if not (isinstance(mask, np.ndarray) or isinstance(mask, csr_matrix)):
+#                         print(f"Unexpected mask type: {type(mask)} in masks_list") 
                         
                 # Get mask info for heuristics
-                print("get_masks_info_nli ")
+#                 print("get_masks_info_nli ")
                 masks_info = get_masks_info_nli(masks, feats, config=cfg)
                 heuristic_function = "none"   # I do not need mmesh heuristic for NLP task
                 print("get_heuristic_scores ")

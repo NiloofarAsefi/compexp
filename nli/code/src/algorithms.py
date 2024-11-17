@@ -36,7 +36,11 @@ def get_netdissect_scores(bitmaps, masks):
         else:
             concept_mask = utils.sparse_to_torch(masks[concept])
         concept_mask = concept_mask.to(bitmaps.device)
+        concept_mask = concept_mask.reshape(-1,1)  # change the dimention ()
         concept_iou = metrics.iou(concept_mask, bitmaps)
+        
+        # Error, size of concept_mask is (10000, ) but bitmaps is (10000,1)
+        print("get_netdissect_scores/concept_iou", concept_iou, concept_mask.shape, bitmaps.shape)
         netdissect_rank[concept] = concept_iou.item()
 
     return netdissect_rank

@@ -110,13 +110,17 @@ def beam_search(
         # skip equivalent formulas of the current beam
         if best_formula and hash(candidate_formula) == hash(best_formula):
             continue
-
+        print(len(masks), len([v for k,v in beam_masks.items()]))
+        masks = [torch.from_numpy(x) for x in masks if type(x) != torch.Tensor]
+        print("type", candidate_formula, len(masks))
         masks_formula = mask_utils.get_formula_mask(
             candidate_formula, masks, beam_masks
         ).to(bitmaps.device)
+        print("masks_formula ", masks_formula.shape)
         iou = metrics.iou(
             masks_formula, bitmaps
         )
+        print("beam_search iou ", iou, masks_formula.shape, bitmaps.shape)
         visited_indices += 1
 
         if not current_beam.full():
@@ -237,7 +241,9 @@ def perform_heuristic_search(
             a float.
     """
     # Extract first beam and candidate concepts
+    print('perform_heuristic_search')
     netdissect_rank = Counter(netdissect_rank)
+    print("netdissect_rank ", netdissect_rank)
     beam = {
         F.Leaf(lab): iou
         for lab, iou in netdissect_rank.most_common(beam_size * 2)
@@ -249,7 +255,7 @@ def perform_heuristic_search(
     beam_masks = {}
     updated_info = {}
     for index_loop in range(1, length):
-        # update infos
+# #        update infos
         if heuristic != "none":
             beam_masks, updated_info = get_beam_info(
                 heuristic, beam, masks, bitmaps, mask_shape, device
