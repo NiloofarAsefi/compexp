@@ -110,13 +110,15 @@ def beam_search(
         # skip equivalent formulas of the current beam
         if best_formula and hash(candidate_formula) == hash(best_formula):
             continue
-        print(len(masks), len([v for k,v in beam_masks.items()]))
-        masks = [torch.from_numpy(x) for x in masks if type(x) != torch.Tensor]
-        print("type", candidate_formula, len(masks))
+        print("Debug len masks", len(masks), len([v for k,v in beam_masks.items()])) # here masks has length 10, beam_masks is zero.
+#         masks = [torch.from_numpy(x) for x in masks if type(x) != torch.Tensor else x]
+        masks = [x if isinstance(x, torch.Tensor) else torch.from_numpy(x) for x in masks]
+        print("type", candidate_formula, len(masks)) #len masks is zero here. 
         masks_formula = mask_utils.get_formula_mask(
             candidate_formula, masks, beam_masks
         ).to(bitmaps.device)
-        print("masks_formula ", masks_formula.shape)
+        masks_formula = masks_formula.reshape(-1,1)
+        print("masks_formula and bitmapsssss", masks_formula.shape, bitmaps.shape) #mask_formula size is 10000, and bitmaps size 10000,1)
         iou = metrics.iou(
             masks_formula, bitmaps
         )

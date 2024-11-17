@@ -1085,7 +1085,7 @@ def main():
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
                 #f"Best Label: {string_label} - "
-                f"Best IoU: {round(best_iou,3)} - "
+                f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
             )
 
