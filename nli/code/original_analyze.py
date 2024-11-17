@@ -8,10 +8,10 @@ import os
 from collections import Counter, defaultdict
 
 import numpy as np
-#import onmt.opts as opts
+# import onmt.opts as opts
 import pandas as pd
 import torch
-#from onmt.utils.parse import ArgumentParser
+# from onmt.utils.parse import ArgumentParser
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -40,6 +40,13 @@ def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
     # Step 1: Create a dictionary to store the new columns
     new_columns = {str(i): acts[:, i] * 1 for i in range(acts.shape[1])}
+    
+    # Step 2: Concatenate all new columns at once
+    preds_to_save = pd.concat([preds_to_save, pd.DataFrame(new_columns)], axis=1)
+    
+    # Save to CSV
+    preds_to_save.to_csv(fname, index=False)
+
 
 def load_vecs(path):
     vecs = []
@@ -658,7 +665,7 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
         }
 
     # Binary mask - encoder/decoder
-    token_masks = np.zeros((len(toks), len(tok_feats_vocab["stoi"])), dtype=np.bool)
+    token_masks = np.zeros((len(toks), len(tok_feats_vocab["stoi"])), dtype=bool)
     for i, (encu, decu, enctagu, dectagu, oth) in enumerate(
         zip(
             encoder_uniques,
@@ -755,6 +762,7 @@ def main():
         dataset,
         settings.RESULT,
     )
+    print('finish ')
 
 
 if __name__ == "__main__":

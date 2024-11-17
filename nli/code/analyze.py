@@ -336,7 +336,9 @@ def compute_best_sentence_iou(args):
 
     feats_to_search = list(range(feats.shape[1]))
     formulas = {}
+    print("len(feats_to_search) ", len(feats_to_search))
     for fval in feats_to_search:
+        print(" for fval in feats_to_search ")
         formula = FM.Leaf(fval)
         formulas[formula] = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
@@ -670,7 +672,7 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
         }
 
     # Binary mask - encoder/decoder
-    token_masks = np.zeros((len(toks), len(tok_feats_vocab["stoi"])), dtype=np.bool)
+    token_masks = np.zeros((len(toks), len(tok_feats_vocab["stoi"])), dtype=bool)
     for i, (encu, decu, enctagu, dectagu, oth) in enumerate(
         zip(
             encoder_uniques,
@@ -734,14 +736,14 @@ def main():
     print("Computing quantiles")
     acts = quantile_features(states)
 
-    #My Add clustering by KMeans after computing quantiles and before search_feat, beacuse the cluster labels would be ready to pass to search_feat.
-    # Clustering: Fit k-means on activations
+#     #My Add clustering by KMeans after computing quantiles and before search_feat, beacuse the cluster labels would be ready to pass to search_feat.
+#     # Clustering: Fit k-means on activations
     
-    print("Clustering activations")
-    num_clusters = settings.NUM_CLUSTERS  # Set number of clusters in settings.py s
+#     print("Clustering activations")
+#     num_clusters = settings.NUM_CLUSTERS  # Set number of clusters in settings.py s
     
-    kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(acts)
-    cluster_labels = kmeans.labels_  # Get cluster labels for each unit
+#     kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(acts)
+#     cluster_labels = kmeans.labels_  # Get cluster labels for each unit
     
     
     print("Extracting sentence token features")

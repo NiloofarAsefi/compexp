@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-
+import pickle
 import multiprocessing as mp
 import os
 from collections import Counter, defaultdict
@@ -551,6 +551,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
         iou_score = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
         )
+        #print("Oh my god iou_score ",  iou_score)
         formulas[formula] = iou_score
 #         print('nillooooo ', formulas[formula], formula, len(acts), len(feats))
 
@@ -1011,22 +1012,9 @@ def main():
         print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations)) #zero
         print("Mean of unit_activations:", unit_activations.mean().item()) # zero
         print("Max of unit_activations:", unit_activations.max().item()) #all of the have zero values
-        # Check multiple units to find ones with non-zero activations
-#     for unit in range(1024):
-#         unit_activations = activations[:, unit].unsqueeze(1)
-#         non_zero_count = torch.count_nonzero(unit_activations)
-#         if non_zero_count > 0:
-#             print(f"Unit {unit} has {non_zero_count} non-zero entries.")
-#             print(f"Mean of unit_activations: {unit_activations.mean().item()}")
-#             print(f"Max of unit_activations: {unit_activations.max().item()}")
 
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
-#         # Try different units to see if any have non-zero activations
-#     test_units = [0, 10, 50, 100, 150, 300, 500]
-#     for unit in test_units:
-#         unit_activations = activations[:, unit].unsqueeze(1)
-#         print(f"Unit {unit} | Non-zero count:", torch.count_nonzero(unit_activations))
         
         for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
             dir_current_results = (
@@ -1093,141 +1081,15 @@ def main():
             else:
                 with open(file_algo_results, "rb") as file:
                     best_label, best_iou, visited = pickle.load(file)
-            string_label = F_src.get_formula_str(best_label, dataset.labels)
+            #string_label = F_src.get_formula_str(best_label, dataset.labels)
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
-                f"Best Label: {string_label} - "
+                #f"Best Label: {string_label} - "
                 f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
             )
 
-# def main():
-#     os.makedirs(settings.RESULT, exist_ok=True)
-
-#     print("Loading model/vocab")
-#     model, dataset = data.snli.load_for_analysis(
-#         settings.MODEL,
-#         settings.DATA,
-#         model_type=settings.MODEL_TYPE,
-#         cuda=settings.CUDA,
-#     )
-
-#     # Last model weight
-#     if settings.MODEL_TYPE == "minimal":
-#         weights = model.mlp.weight.t().detach().cpu().numpy()
-#     else:
-#         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
-
-#     print("Extracting features")
-#     toks, states, feats, idxs, all_states_tensor = extract_features(
-#         model,
-#         dataset,
-#     )
-#     # CE has states as the activations, and CCE has activations.
-#     # activations (line 132) in CCE = states (1024 units) in CE
-#     print("Niloo")
-#     activations = all_states_tensor
-#     # the rest of the code after this point should be similar to CCE (not CE).
-#     selected_units = [80, 200, 400]
-#     for unit in selected_units: # this is line 148 of CCE.
-#         unit_activations = activations[unit]
-#         # Error: unit_activations should be numpy, but compute_activation_ranges expects torch.tensor.
-#         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, settings.NUM_CLUSTERS)
-        
-#         # Loop over all the activation ranges
-#         for cluster_index, activation_range in enumerate(
-#             sorted(activation_ranges)
-#         ):
-#             dir_current_results = (
-#                     f"{cfg.get_results_directory()}/"
-#                     + f"{layer_name}/{unit}/{activation_range}"
-#                 )
-#             if not os.path.exists(dir_current_results):
-#                 os.makedirs(dir_current_results)
-#             file_algo_results = (
-#                 f"{dir_current_results}/" + f"{FLAGS.length}.pickle"
-#             )
-#             if not os.path.exists(file_algo_results):
-#                 # Compute binary masks
-#                 bitmaps = activation_utils_src.compute_bitmaps(
-#                     unit_activations,
-#                     activation_range,
-#                     mask_shape=mask_shape,
-#                 )
-#                 bitmaps = bitmaps.to(cfg.device)
-#                 (
-#                     best_label,
-#                     best_iou,
-#                     visited,
-#                 ) = algorithms_src.get_heuristic_scores(
-#                     masks,
-#                     bitmaps,
-#                     segmentations_info=masks_info,
-#                     heuristic="mmesh",
-#                     length=FLAGS.length,
-#                     max_size_mask=cfg.get_max_mask_size(),
-#                     mask_shape=cfg.get_mask_shape(),
-#                     device=cfg.device,
-#                 )
-#                 with open(file_algo_results, "wb") as file:
-#                     pickle.dump((best_label, best_iou, visited), file)
-#             else:
-#                 with open(file_algo_results, "rb") as file:
-#                     best_label, best_iou, visited = pickle.load(file)
-#             string_label = F_src.get_formula_str(best_label, dataset.labels)
-#             print(
-#                 f"Parsed Unit: {unit} - "
-#                 + f"Cluster: {cluster_index} - "
-#                 + f"Best Label: {string_label} - "
-#                 + f"Best IoU: {round(best_iou,3)} - "
-#                 + f"Visited: {visited}"
-#             )
-
-
-#     print("Computing quantiles")
-#     acts = quantile_features(states)
-
-#     #My Add clustering by KMeans after computing quantiles and before search_feat, beacuse the cluster labels would be ready to pass to search_feat.
-#     # Clustering: Fit k-means on activations
-
-#     print("Clustering activations")
-#     num_clusters = settings.NUM_CLUSTERS  # Set number of clusters in settings.py s
-
-#     kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(acts)
-#     cluster_labels = kmeans.labels_  # Get cluster labels for each unit
-
-
-#     print("Extracting sentence token features")
-#     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
-#     print("Mask search")
-#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
-
-#     print("Load predictions")
-#     mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
-#     dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
-#     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
-#     # Add the feature activations so we can do correlation
-#     preds = pd.read_csv(predf)
-
-#     save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
-
-#     print("Visualizing features")
-#     from vis import sentence_report
-
-#     sentence_report.make_html(
-#         records,
-#         # Features
-#         toks,
-#         states,
-#         (tok_feats, tok_feats_vocab),
-#         idxs,
-#         preds,
-#         # General stuff
-#         weights,
-#         dataset,
-#         settings.RESULT,
-#     )
 
 
 if __name__ == "__main__":

@@ -284,7 +284,7 @@ def perform_heuristic_search(
         beam = dict(Counter(beam).most_common(beam_size))
        
 
-    # Check if `beam` is not empty before proceeding
+    #Check if `beam` is not empty before proceeding
     if beam:
         top_result = Counter(beam).most_common(1)[0]
     else:
@@ -293,7 +293,9 @@ def perform_heuristic_search(
         top_result = None  # or handle this case as needed
     
     top_result = Counter(beam).most_common(1)[0]
+    
+    print(" beam, top_result",  beam, top_result)
 
-    best_iou = top_result[1].item()
+    best_iou = top_result[1]#.item()
     best_label = top_result[0]
     return best_label, best_iou, total_visited
