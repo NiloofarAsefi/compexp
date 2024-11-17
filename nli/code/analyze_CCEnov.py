@@ -39,26 +39,6 @@ from scipy.sparse import csr_matrix  # Import if sparse matrices are required
  
 import torch
 
-# # Load the model file
-# model_path = "6.pth"
-# model = torch.load(model_path)
-
-# # Print model architecture
-# print(model)
-
-# has_non_zero_weights = False
-# for name, param in model.items() if isinstance(model, dict) else model.named_parameters():
-#     print(f"Layer: {name} | Sum of weights: {param.sum().item()}")
-#     if param.sum().item() != 0:
-#         has_non_zero_weights = True
-
-# if has_non_zero_weights:
-#     print("The model has non-zero weights.")
-# else:
-#     print("Warning: All weights are zero.")
-
-
-
 
 # def save_with_acts(preds, acts, fname):
 #     preds_to_save = preds.copy()
@@ -177,7 +157,7 @@ def get_mask(feats, f, dataset, feat_type):
     """
     Serializable/global version of get_mask for multiprocessing
     """  
-    print(type(f), f)
+    #print(type(f), f)
     
     # Handle cases where `f` is a list, which indicates it may already contain masks
     if isinstance(f, list):
@@ -324,9 +304,9 @@ OPS = defaultdict(
 
 
 def compute_iou(formula, acts, feats, dataset, feat_type="word"):
-    print("feats ", feats.shape) # 10000, 4087
+    #print("feats ", feats.shape) # 10000, 4087
     masks = get_mask(feats, formula, dataset, feat_type)
-    print('comput_iou + masks: ', masks.shape) # (10000,)
+    #print('comput_iou + masks: ', masks.shape) # (10000,)
     # Cache mask
     formula.mask = masks
 
@@ -348,144 +328,144 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
     return comp_iou
 
 
-def compute_best_word_iou(args):
-    (unit,) = args
+# def compute_best_word_iou(args):
+#     (unit,) = args
 
-    acts = GLOBALS["acts"][:, unit]
-    feats = GLOBALS["feats"]
-    states = GLOBALS["states"][:, unit]
-    dataset = GLOBALS["dataset"]
+#     acts = GLOBALS["acts"][:, unit]
+#     feats = GLOBALS["feats"]
+#     states = GLOBALS["states"][:, unit]
+#     dataset = GLOBALS["dataset"]
 
-    # Start search with closed feats + maximally activated open feats
-    search_ofis = get_max_ofis(states, feats, dataset)
-    # Add closed + multi feats
-    feats_to_search = dataset.cfis + dataset.mfis + search_ofis
-    formulas = {}
-    for fval in feats_to_search:
-        formula = FM.Leaf(fval)
-        formulas[formula] = compute_iou(formula, acts, feats, dataset, feat_type="word")
+#     # Start search with closed feats + maximally activated open feats
+#     search_ofis = get_max_ofis(states, feats, dataset)
+#     # Add closed + multi feats
+#     feats_to_search = dataset.cfis + dataset.mfis + search_ofis
+#     formulas = {}
+#     for fval in feats_to_search:
+#         formula = FM.Leaf(fval)
+#         formulas[formula] = compute_iou(formula, acts, feats, dataset, feat_type="word")
 
-        # Try unary ops
-        fcat = dataset.fis2cnames[fval]
-        for op, negate in OPS[fcat]:
-            # FIXME: Don't evaluate on neighbors if they don't exist
-            new_formula = formula
-            if negate:
-                new_formula = FM.Not(new_formula)
-            new_formula = op(new_formula)
-            new_iou = compute_iou(new_formula, acts, feats, dataset, feat_type="word")
-            formulas[new_formula] = new_iou
+#         # Try unary ops
+#         fcat = dataset.fis2cnames[fval]
+#         for op, negate in OPS[fcat]:
+#             # FIXME: Don't evaluate on neighbors if they don't exist
+#             new_formula = formula
+#             if negate:
+#                 new_formula = FM.Not(new_formula)
+#             new_formula = op(new_formula)
+#             new_iou = compute_iou(new_formula, acts, feats, dataset, feat_type="word")
+#             formulas[new_formula] = new_iou
 
-    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-    best_noncomp = Counter(formulas).most_common(1)[0]
+#     formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+#     best_noncomp = Counter(formulas).most_common(1)[0]
 
-    for i in range(settings.MAX_FORMULA_LENGTH - 1):
-        new_formulas = {}
-        for formula in formulas:
-            # Unary ops if the current formula is a leaf
-            # NOTE: This is now redundant since leaf formulas will have been
-            # accessed already.
-            # Here you shoudl make decisions about e.g. "neighbors of
-            # neighbors" or something like that. SPECIFICALLY, maybe neighbors
-            # should be treated the same as negates?
-            #  if formula.is_leaf():
-            #  fcat = dataset.fis2cnames[formula.val]
-            #  for op, negate in OPS[fcat]:
-            #  new_formula = formula
-            #  if negate:
-            #  new_formula = FM.Not(new_formula)
-            #  new_formula = op(new_formula)
-            #  new_iou = compute_iou(new_formula, acts, feats, dataset, feat_type='word')
-            #  new_formulas[new_formula] = new_iou
+#     for i in range(settings.MAX_FORMULA_LENGTH - 1):
+#         new_formulas = {}
+#         for formula in formulas:
+#             # Unary ops if the current formula is a leaf
+#             # NOTE: This is now redundant since leaf formulas will have been
+#             # accessed already.
+#             # Here you shoudl make decisions about e.g. "neighbors of
+#             # neighbors" or something like that. SPECIFICALLY, maybe neighbors
+#             # should be treated the same as negates?
+#             #  if formula.is_leaf():
+#             #  fcat = dataset.fis2cnames[formula.val]
+#             #  for op, negate in OPS[fcat]:
+#             #  new_formula = formula
+#             #  if negate:
+#             #  new_formula = FM.Not(new_formula)
+#             #  new_formula = op(new_formula)
+#             #  new_iou = compute_iou(new_formula, acts, feats, dataset, feat_type='word')
+#             #  new_formulas[new_formula] = new_iou
 
-            # Generic binary ops
-            for feat in feats_to_search:
-                for op, negate in OPS["all"]:
-                    new_formula = FM.Leaf(feat)
-                    if negate:
-                        new_formula = FM.Not(new_formula)
-                    new_formula = op(formula, new_formula)
-                    new_iou = compute_iou(
-                        new_formula, acts, feats, dataset, feat_type="word"
-                    )
-                    new_formulas[new_formula] = new_iou
+#             # Generic binary ops
+#             for feat in feats_to_search:
+#                 for op, negate in OPS["all"]:
+#                     new_formula = FM.Leaf(feat)
+#                     if negate:
+#                         new_formula = FM.Not(new_formula)
+#                     new_formula = op(formula, new_formula)
+#                     new_iou = compute_iou(
+#                         new_formula, acts, feats, dataset, feat_type="word"
+#                     )
+#                     new_formulas[new_formula] = new_iou
 
-        formulas.update(new_formulas)
-        # Trim the beam
-        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+#         formulas.update(new_formulas)
+#         # Trim the beam
+#         formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
 
-    best = Counter(formulas).most_common(1)[0]
+#     best = Counter(formulas).most_common(1)[0]
 
-    return {
-        "unit": unit,
-        "best": best,
-        "best_noncomp": best_noncomp,
-    }
+#     return {
+#         "unit": unit,
+#         "best": best,
+#         "best_noncomp": best_noncomp,
+#     }
 
 
-def compute_best_sentence_iou(args):
-    (unit,) = args
+# def compute_best_sentence_iou(args):
+#     (unit,) = args
 
-    acts = GLOBALS["acts"][:, unit]
-    feats = GLOBALS["feats"]
-    dataset = GLOBALS["dataset"]
+#     acts = GLOBALS["acts"][:, unit]
+#     feats = GLOBALS["feats"]
+#     dataset = GLOBALS["dataset"]
 
-    if acts.sum() < settings.MIN_ACTS:
-        null_f = (FM.Leaf(0), 0)
-        return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+#     if acts.sum() < settings.MIN_ACTS:
+#         null_f = (FM.Leaf(0), 0)
+#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
 
-    feats_to_search = list(range(feats.shape[1]))
-    formulas = {}
-    for fval in feats_to_search:
-        formula = FM.Leaf(fval)
-        formulas[formula] = compute_iou(
-            formula, acts, feats, dataset, feat_type="sentence"
-        )
+#     feats_to_search = list(range(feats.shape[1]))
+#     formulas = {}
+#     for fval in feats_to_search:
+#         formula = FM.Leaf(fval)
+#         formulas[formula] = compute_iou(
+#             formula, acts, feats, dataset, feat_type="sentence"
+#         )
 
-        for op, negate in OPS["lemma"]:
-            # FIXME: Don't evaluate on neighbors if they don't exist
-            new_formula = formula
-            if negate:
-                new_formula = FM.Not(new_formula)
-            new_formula = op(new_formula)
-            new_iou = compute_iou(
-                new_formula, acts, feats, dataset, feat_type="sentence"
-            )
-            formulas[new_formula] = new_iou
+#         for op, negate in OPS["lemma"]:
+#             # FIXME: Don't evaluate on neighbors if they don't exist
+#             new_formula = formula
+#             if negate:
+#                 new_formula = FM.Not(new_formula)
+#             new_formula = op(new_formula)
+#             new_iou = compute_iou(
+#                 new_formula, acts, feats, dataset, feat_type="sentence"
+#             )
+#             formulas[new_formula] = new_iou
 
-    nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
-    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-    best_noncomp = Counter(formulas).most_common(1)[0]
+#     nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
+#     formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+#     best_noncomp = Counter(formulas).most_common(1)[0]
 
-    for i in range(settings.MAX_FORMULA_LENGTH - 1):
-        new_formulas = {}
-        for formula in formulas:
-            # Generic binary ops
-            for feat in nonzero_iou:
-                for op, negate in OPS["all"]:
-                    if not isinstance(feat, FM.F):
-                        new_formula = FM.Leaf(feat)
-                    else:
-                        new_formula = feat
-                    if negate:
-                        new_formula = FM.Not(new_formula)
-                    new_formula = op(formula, new_formula)
-                    new_iou = compute_iou(
-                        new_formula, acts, feats, dataset, feat_type="sentence"
-                    )
-                    new_formulas[new_formula] = new_iou
+#     for i in range(settings.MAX_FORMULA_LENGTH - 1):
+#         new_formulas = {}
+#         for formula in formulas:
+#             # Generic binary ops
+#             for feat in nonzero_iou:
+#                 for op, negate in OPS["all"]:
+#                     if not isinstance(feat, FM.F):
+#                         new_formula = FM.Leaf(feat)
+#                     else:
+#                         new_formula = feat
+#                     if negate:
+#                         new_formula = FM.Not(new_formula)
+#                     new_formula = op(formula, new_formula)
+#                     new_iou = compute_iou(
+#                         new_formula, acts, feats, dataset, feat_type="sentence"
+#                     )
+#                     new_formulas[new_formula] = new_iou
 
-        formulas.update(new_formulas)
-        # Trim the beam
-        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+#         formulas.update(new_formulas)
+#         # Trim the beam
+#         formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
 
-    best = Counter(formulas).most_common(1)[0]
+#     best = Counter(formulas).most_common(1)[0]
 
-    return {
-        "unit": unit,
-        "best": best,
-        "best_noncomp": best_noncomp,
-    }
+#     return {
+#         "unit": unit,
+#         "best": best,
+#         "best_noncomp": best_noncomp,
+#     }
 
 # def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
 # #  #   (unit,) = args
@@ -554,6 +534,8 @@ def compute_best_sentence_iou(args):
 
 def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     # Check if activations for the unit meet the minimum activation threshold
+    acts = acts.reshape(-1)
+    print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
     if acts.sum() < settings.MIN_ACTS:
         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
@@ -562,13 +544,15 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     feats_to_search = list(range(feats.shape[1]))
     formulas = {}
     masks = []
-    
+#     print(" len(feats_to_search) ", len(feats_to_search))
     for fval in feats_to_search:
         formula = FM.Leaf(fval)
+#         print(" forloop featstosearch ", formula)
         iou_score = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
         )
         formulas[formula] = iou_score
+#         print('nillooooo ', formulas[formula], formula, len(acts), len(feats))
 
         for op, negate in OPS["lemma"]:
             new_formula = formula
@@ -1070,11 +1054,14 @@ def main():
                 #masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
                 
                  # Generate masks based on computed formula
+                    
+                print(" print masks ... ")
                 masks = get_mask(feats, formula, dataset, feat_type)
                 
 #                 # Convert masks dictionary to a list of its values for further processing
 #                 masks_list = list(masks.values())
                 masks_list = masks
+                print("masks_list ", len(masks_list))
 
                 # Validate masks_list
                 for mask in masks_list:
@@ -1082,8 +1069,10 @@ def main():
                         print(f"Unexpected mask type: {type(mask)} in masks_list") 
                         
                 # Get mask info for heuristics
+                print("get_masks_info_nli ")
                 masks_info = get_masks_info_nli(masks, feats, config=cfg)
                 heuristic_function = "none"   # I do not need mmesh heuristic for NLP task
+                print("get_heuristic_scores ")
                 bitmaps = bitmaps.to(cfg.device)
                 (
                     best_label,
