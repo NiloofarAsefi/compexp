@@ -989,16 +989,11 @@ def main():
     
 #     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
     
-    
-    # Initialize masks as an empty list or tensor
-# 
-#     masks_info = None  # 
-#     heuristic_function = "none"
-    
+
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
     # each neuron (1024) should have multiple values for different concepts. 
-#     print("Niloo")
+    
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
 #     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
@@ -1099,6 +1094,23 @@ def main():
     df.to_csv("output.csv")
 #     with open('output.pkl', 'wb') as f:
 #         pickle.dump(output, f)
+
+    print("Visualizing features")
+    from vis import sentence_report
+
+    sentence_report.make_html(
+        #records,
+        # Features
+        toks,
+        states,
+        (tok_feats, tok_feats_vocab),
+        idxs,
+        preds,
+        # General stuff
+        weights,
+        dataset,
+        settings.RESULT,
+    )
 
 
 if __name__ == "__main__":
