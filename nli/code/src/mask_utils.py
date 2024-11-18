@@ -425,7 +425,7 @@ def get_formula_mask(f, masks, optional_masks=None):
     Returns:
         Formula's Mask.
     """
-    print("mask_utils/get_formula_mask", f, len(masks))
+    #print("mask_utils/get_formula_mask", f, len(masks))
     if optional_masks is not None and f in optional_masks.keys():
         mask = optional_masks[f]
         if isinstance(mask, sparse.csr.csr_matrix):
@@ -433,7 +433,7 @@ def get_formula_mask(f, masks, optional_masks=None):
         else:
             return mask
     if isinstance(f, F.Leaf):
-        print(f, f.val, len(masks))
+        #print(f, f.val, len(masks))
         mask = masks[f.val]
         if isinstance(mask, sparse.csr.csr_matrix):
             return utils.sparse_to_torch(mask)

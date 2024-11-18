@@ -40,7 +40,7 @@ def get_netdissect_scores(bitmaps, masks):
         concept_iou = metrics.iou(concept_mask, bitmaps)
         
         # Error, size of concept_mask is (10000, ) but bitmaps is (10000,1)
-        print("get_netdissect_scores/concept_iou", concept_iou, concept_mask.shape, bitmaps.shape)
+        #print("get_netdissect_scores/concept_iou", concept_iou, concept_mask.shape, bitmaps.shape)
         netdissect_rank[concept] = concept_iou.item()
 
     return netdissect_rank

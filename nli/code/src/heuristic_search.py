@@ -100,7 +100,7 @@ def beam_search(
         minimum = 0
     else:
         minimum = current_beam.queue[0].iou
-
+    
     for candidate in search_space:
         e_iou = candidate.iou
 
@@ -110,30 +110,34 @@ def beam_search(
         # skip equivalent formulas of the current beam
         if best_formula and hash(candidate_formula) == hash(best_formula):
             continue
-        print("Debug len masks", len(masks), len([v for k,v in beam_masks.items()])) # here masks has length 10, beam_masks is zero.
+        #print("Debug len masks", len(masks), len([v for k,v in beam_masks.items()])) 
 #         masks = [torch.from_numpy(x) for x in masks if type(x) != torch.Tensor else x]
         masks = [x if isinstance(x, torch.Tensor) else torch.from_numpy(x) for x in masks]
-        print("type", candidate_formula, len(masks)) #len masks is zero here. 
+#         print("type ", candidate_formula, e_iou) #len masks is zero here. 
         masks_formula = mask_utils.get_formula_mask(
             candidate_formula, masks, beam_masks
         ).to(bitmaps.device)
         masks_formula = masks_formula.reshape(-1,1)
-        print("masks_formula and bitmapsssss", masks_formula.shape, bitmaps.shape) #mask_formula size is 10000, and bitmaps size 10000,1)
+        #print("masks_formula and bitmapsssss", masks_formula.shape, bitmaps.shape) #mask_formula size is 10000, and bitmaps size 10000,1)
         iou = metrics.iou(
             masks_formula, bitmaps
         )
-        print("beam_search iou ", iou, masks_formula.shape, bitmaps.shape)
+        #print("type ", iou, iou) #len masks is zero here. 
         visited_indices += 1
 
         if not current_beam.full():
+            print('not current_beam.full() ' , candidate.formula)
             candidate.iou = iou
             current_beam.put(candidate)
             minimum = current_beam.queue[0].iou
         elif iou > minimum:
+            print('iou > minimum ' , candidate.formula)
             candidate.iou = iou
             current_beam.get()
             current_beam.put(candidate)
             minimum = current_beam.queue[0].iou
+#         else:
+#             print('else ' , candidate.formula)
 
     for _ in range(current_beam.qsize()):
         candidate = current_beam.get()
@@ -245,7 +249,7 @@ def perform_heuristic_search(
     # Extract first beam and candidate concepts
     print('perform_heuristic_search')
     netdissect_rank = Counter(netdissect_rank)
-    print("netdissect_rank ", netdissect_rank)
+    #print("netdissect_rank ", netdissect_rank)
     beam = {
         F.Leaf(lab): iou
         for lab, iou in netdissect_rank.most_common(beam_size * 2)
@@ -262,6 +266,7 @@ def perform_heuristic_search(
             beam_masks, updated_info = get_beam_info(
                 heuristic, beam, masks, bitmaps, mask_shape, device
             )
+#         print( " beam.keys(), candidate_labels ", beam.keys(), candidate_labels)
         sorted_search_space = heuristics.sort_search_space_by(
             compute_next_search_space(
                 beam.keys(), candidate_labels
@@ -287,7 +292,8 @@ def perform_heuristic_search(
             beam.update(
                 {next_beam_formulas[index_beam]: next_beam_iou[index_beam]}
             )
-
+#         print('ya abalfazel ... all next_beam_formulas ', next_beam_formulas)
+        print('ya abalfazel ... all beam ', beam)
         # Trim the beam
         beam = dict(Counter(beam).most_common(beam_size))
        
@@ -304,6 +310,8 @@ def perform_heuristic_search(
     
     print(" beam, top_result",  beam, top_result)
 
-    best_iou = top_result[1]#.item()
-    best_label = top_result[0]
+    best_iou = top_result[1]#.item()   #for unit [0], best iou and top result is differnt values for each cluater, like 0.07, 0.04
+    best_label = top_result[0]   #for unit 0, best_label is 1 for all clusters.
+    print("best_iou and best_label",best_iou, best_label)
     return best_label, best_iou, total_visited
+

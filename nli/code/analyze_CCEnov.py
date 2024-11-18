@@ -157,7 +157,8 @@ def get_mask(feats, f, dataset, feat_type):
     """
     Serializable/global version of get_mask for multiprocessing
     """  
-    #print(type(f), f)
+#     print('type(f), f, feats ', type(f), f, feats.shape)
+    # type(f), f, feats  <class 'formula.Neighbors'> (NEIGHBORS 2015), feats is a matrix of true/false. (10000, 4087)
     
     # Handle cases where `f` is a list, which indicates it may already contain masks
     if isinstance(f, list):
@@ -595,7 +596,6 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
         mask = get_mask(feats, formula, dataset, feat_type="sentence")
         masks.append(mask)  # Store directly as dense mask
 
-#     print('output compute_best_sentence_iou_niloo (masks):', masks)
     return masks
 
 def pad_collate(batch, sort=True):
@@ -685,8 +685,8 @@ def extract_features(
 
     all_feats = {"onehot": all_feats, "multi": all_multifeats}
 
-    print("Shape of all_states_tensor:", len(all_states_tensor), all_states_tensor[0].shape)
-    print("First few entries in all_states_tensor:", all_states_tensor[:5])
+    #print("Shape of all_states_tensor:", len(all_states_tensor), all_states_tensor[0].shape)
+    #print("First few entries in all_states_tensor:", all_states_tensor[:5])
     return all_srcs, all_states, all_feats, all_idxs, all_states_tensor
 
     
@@ -955,7 +955,7 @@ def main():
 
     sparse_segmentation_directory = None # cfg.get_segmentation_directory()
     mask_shape = cfg.get_mask_shape()
-    print("Mask Shape:", mask_shape)
+    #print("Mask Shape:", mask_shape)
   
 
     # Now get the masks information
@@ -983,6 +983,8 @@ def main():
     print("Computing quantiles")
     acts = quantile_features(states)
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
+#     print('toks, tok_feats ', np.array(toks).shape, np.array(tok_feats).shape)
+    # tok_feats_vocab = 'oth:overlap:overlap50': 4085, 'oth:overlap:overlap75': 4086
     
     
 #     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
@@ -1000,20 +1002,22 @@ def main():
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
 #     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
-    selected_units = [0, 2, 3, 4]
+    selected_units = [0]
     output = []
+    #for unit in range(1024):
     for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
 #         print("unit activations", unit_activations.shape)
         # for unit 80, everything was zero. 
         # Check for non-zero values directly in `unit_activations`
-        print(f"Checking activations for unit {unit}")
+#         print(f"Checking activations for unit {unit}")
 #         print("First few entries of unit_activations:", unit_activations[:5]) 
 #         print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations))
 #         print("Mean of unit_activations:", unit_activations.mean().item()) 
 #         print("Max of unit_activations:", unit_activations.max().item())
-
+        if unit_activations.max().item()== 0 and unit_activations.mean().item()==0:
+            continue
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         
         
