@@ -1000,7 +1000,8 @@ def main():
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
 #     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
-    selected_units = [0]
+    selected_units = [0, 2, 3, 4]
+    output = []
     for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
@@ -1084,11 +1085,16 @@ def main():
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
+                f"best_label: {best_label}"
                 #f"Best Label: {string_label} - "
                 f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
             )
-
+            output += [[unit, cluster_index, best_label, best_iou, visited]]
+    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited'] )
+    df.to_csv("output.csv")
+#     with open('output.pkl', 'wb') as f:
+#         pickle.dump(output, f)
 
 
 if __name__ == "__main__":
