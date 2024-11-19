@@ -35,7 +35,7 @@ from src import utils as utils_src
 from src import formula as F_src
 from src import settings as settings_src
 from src import constants as C_src
-from scipy.sparse import csr_matrix  # Import if sparse matrices are required
+from scipy.sparse import csr_matrix 
  
 import torch
 
@@ -553,7 +553,7 @@ def compute_best_sentence_iou_niloo(args):
 #         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
 #         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
-    feats_to_search = list(range(feats["onehot"].shape[1]))     #list(range(feats.shape[1]))
+    feats_to_search =list(range(feats.shape[1]))   #list(range(feats["onehot"].shape[1]))
     formulas = {}
     masks = []
 #     print(" len(feats_to_search) ", len(feats_to_search))
@@ -712,6 +712,7 @@ def quantile_features(feats):
         return np.stack(feats) > 0
 
     quantiles = get_quantiles(feats, settings.ALPHA)
+    print("quantile_features check feats", feats)
     return feats > quantiles[np.newaxis]
 
 #My, add cluster labels to search_feature: # remove it now
@@ -744,7 +745,9 @@ def search_feats(acts, states, feats, weights, dataset):
     def cat_namer_fine(i):
         return ":".join(feats_vocab["itos"][i].split(":")[:2])
 
-    ioufunc = compute_best_sentence_iou_niloo 
+    ioufunc = compute_best_sentence_iou_niloo
+    print("Debugggging ioufunc",ioufunc) 
+    #function compute_best_sentence_iou_niloo at 0x7f047464b160
 
     records = []
     if settings.NEURONS is None:
@@ -763,6 +766,7 @@ def search_feats(acts, states, feats, weights, dataset):
         total=len(units), desc="Units"
     ) as pbar:
         for res in pool.imap_unordered(ioufunc, mp_args):
+            
             unit = res["unit"]
             best_lab, best_iou = res["best"]
             best_name = best_lab.to_str(namer, sort=True)
@@ -1007,7 +1011,7 @@ def main():
     # tok_feats_vocab = 'oth:overlap:overlap50': 4085, 'oth:overlap:overlap75': 4086
     
     print("Mask search")
-    #records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #remove cluster_labels
+    records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #remove cluster_labels
     #pass  cluster labels to search_feat here
 
     print("Mask search")
