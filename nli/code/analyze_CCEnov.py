@@ -543,14 +543,15 @@ def compute_best_sentence_iou_niloo(args):
     acts = GLOBALS["acts"][:, unit]
     feats = GLOBALS["feats"]
     dataset = GLOBALS["dataset"]
+   
      
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
 #     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
-    if acts.sum() < settings.MIN_ACTS:
-        print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
-        null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
-        return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+#     if acts.sum() < settings.MIN_ACTS:
+#         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
+#         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
+#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
     feats_to_search = list(range(feats["onehot"].shape[1]))     #list(range(feats.shape[1]))
     formulas = {}
@@ -723,13 +724,16 @@ def search_feats(acts, states, feats, weights, dataset):
     #Set global vars
     GLOBALS["acts"] = acts
     GLOBALS["states"] = states
+    GLOBALS["feats"] = feats[0]
+    GLOBALS["dataset"] = feats[1]
+    feats_vocab = feats[1]
 
-    GLOBALS["feats"] = feats.get('onehot')  #feats[0]
-    GLOBALS["dataset"] = feats.get('multi')
-#     print("feats keys:", feats.keys())   # feats is a class dictionary.  #feats.keys: ['onehot', 'multi']
-    feats_vocab = feats.get('multi')
+#     GLOBALS["feats"] = feats.get('onehot')  #feats[0]
+#     GLOBALS["dataset"] = feats.get('multi')
+# #     print("feats keys:", feats.keys())   # feats is a class dictionary.  #feats.keys: ['onehot', 'multi']
+#     feats_vocab = feats.get('multi')
   
-    
+    #print("feats_vocab",feats_vocab) # True and False is shown. but in original CE, it is tokens... 
     
     def namer(i):
         return feats_vocab["itos"][i]
