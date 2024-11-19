@@ -535,15 +535,16 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
 #     return formulas
 
 
-#def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
-    
-def compute_best_sentence_iou_niloo(args):
-    (unit,) = args
 
-    acts = GLOBALS["acts"][:, unit]
-    feats = GLOBALS["feats"]
-    dataset = GLOBALS["dataset"]
-   
+    
+# def compute_best_sentence_iou_niloo(args):
+#     (unit,) = args
+
+#     acts = GLOBALS["acts"][:, unit]
+#     feats = GLOBALS["feats"]
+#     dataset = GLOBALS["dataset"]
+
+def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
      
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
@@ -553,7 +554,7 @@ def compute_best_sentence_iou_niloo(args):
 #         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
 #         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
-    feats_to_search =list(range(feats.shape[1]))   #list(range(feats["onehot"].shape[1]))
+    feats_to_search =list(range(feats.shape[1]))  
     formulas = {}
     masks = []
 #     print(" len(feats_to_search) ", len(feats_to_search))
@@ -563,7 +564,7 @@ def compute_best_sentence_iou_niloo(args):
         iou_score = compute_iou(
             formula, acts, feats, dataset, feat_type="sentence"
         )
-        #print("Oh my god iou_score ",  iou_score)
+    
         formulas[formula] = iou_score
 #         print('nillooooo ', formulas[formula], formula, len(acts), len(feats))
 
@@ -712,7 +713,6 @@ def quantile_features(feats):
         return np.stack(feats) > 0
 
     quantiles = get_quantiles(feats, settings.ALPHA)
-    print("quantile_features check feats", feats)
     return feats > quantiles[np.newaxis]
 
 #My, add cluster labels to search_feature: # remove it now
@@ -746,7 +746,7 @@ def search_feats(acts, states, feats, weights, dataset):
         return ":".join(feats_vocab["itos"][i].split(":")[:2])
 
     ioufunc = compute_best_sentence_iou_niloo
-    print("Debugggging ioufunc",ioufunc) 
+    #print("Debugggging ioufunc",ioufunc) 
     #function compute_best_sentence_iou_niloo at 0x7f047464b160
 
     records = []
@@ -769,6 +769,7 @@ def search_feats(acts, states, feats, weights, dataset):
             
             unit = res["unit"]
             best_lab, best_iou = res["best"]
+            print("res, best_lab, best_iou", best_lab, best_iou) 
             best_name = best_lab.to_str(namer, sort=True)
             best_cat = best_lab.to_str(cat_namer, sort=True)
             best_cat_fine = best_lab.to_str(cat_namer_fine, sort=True)
@@ -1010,12 +1011,12 @@ def main():
 #     print('toks, tok_feats ', np.array(toks).shape, np.array(tok_feats).shape)
     # tok_feats_vocab = 'oth:overlap:overlap50': 4085, 'oth:overlap:overlap75': 4086
     
-    print("Mask search")
-    records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #remove cluster_labels
-    #pass  cluster labels to search_feat here
+#     print("Mask search")
+#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #remove cluster_labels
+#     #pass  cluster labels to search_feat here
 
     print("Mask search")
-    records = search_feats(acts, states, feats, weights, dataset) #remove cluster_labels
+#     records = search_feats(acts, states, feats, weights, dataset) #remove cluster_labels
 
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
@@ -1024,7 +1025,16 @@ def main():
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
 #     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
-    selected_units = [0]
+
+    print("Load predictions")
+    mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
+    dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
+    predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
+    # Add the feature activations so we can do correlation
+    preds = pd.read_csv(predf)
+    print("preds.shape ", preds.shape)
+    
+    selected_units = [0, 99]
     output = []
     #for unit in range(1024):
     for unit in selected_units:
@@ -1108,6 +1118,13 @@ def main():
                 with open(file_algo_results, "rb") as file:
                     best_label, best_iou, visited = pickle.load(file)
             #string_label = F_src.get_formula_str(best_label, dataset.labels)
+            
+                # Add preds for the current unit
+            if unit < len(preds):  # Check bounds
+                prediction = preds.iloc[unit].to_dict()
+            else:
+                prediction = None
+
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
@@ -1115,40 +1132,26 @@ def main():
                 #f"Best Label: {string_label} - "
                 f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
+                f"Prediction: {prediction}"
             )
-            output += [[unit, cluster_index, best_label, best_iou, visited]]
-    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited'] )
+            output += [[unit, cluster_index, best_label, best_iou, visited, prediction]] #add preds
+    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited', 'prediction'] )
     df.to_csv("output.csv")
 #     with open('output.pkl', 'wb') as f:
 #         pickle.dump(output, f)
 
-    print("Load predictions")
-    mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
-    dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
-    predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
-    # Add the feature activations so we can do correlation
-    preds = pd.read_csv(predf)
-    print("preds.shape ", preds.shape)
+#     print("Load predictions")
+#     mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
+#     dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
+#     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
+#     # Add the feature activations so we can do correlation
+#     preds = pd.read_csv(predf)
+#     print("preds.shape ", preds.shape)
 
     save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
 
 
-    print("Visualizing features")
-    from vis import sentence_report
 
-    sentence_report.make_html(
-        records,
-        # Features
-        toks,
-        states,  
-        (tok_feats, tok_feats_vocab),
-        idxs,
-        preds,
-        # General stuff
-        weights,
-        dataset,
-        settings.RESULT,
-    )
 
 
 if __name__ == "__main__":

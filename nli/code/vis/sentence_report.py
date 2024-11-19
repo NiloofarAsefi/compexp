@@ -11,7 +11,7 @@ import formula as FM
 import settings
 import os
 import numpy as np
-from analyze import get_mask
+from analyze_CCEnov import get_mask
 import pyparsing as pp
 from scipy.stats import entropy
 from sklearn.metrics import confusion_matrix

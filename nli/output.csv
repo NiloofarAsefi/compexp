@@ -1,1 +1,11 @@
-,unit,cluster_index,best_label,best_iou,visited
+,unit,cluster_index,best_label,best_iou,visited,prediction
+0,0,0,1,0.10356152802705765,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+1,0,1,1,0.08083401620388031,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+2,0,2,1,0.06306491047143936,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+3,0,3,1,0.0396670438349247,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+4,0,4,1,0.015209125354886055,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+5,99,0,1,0.0336872935295105,468,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+6,99,1,1,0.029097605496644974,468,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+7,99,2,1,0.021569356322288513,468,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+8,99,3,1,0.013468013145029545,468,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+9,99,4,1,0.006764374207705259,468,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
