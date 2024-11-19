@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-import pickle
+import pickle   #based on CCE script
 import multiprocessing as mp
 import os
 from collections import Counter, defaultdict
@@ -45,6 +45,8 @@ import torch
 #     for i in range(acts.shape[1]):
 #         preds_to_save[str(i)] = acts[:, i] * 1
 #     preds_to_save.to_csv(fname, index=False)
+
+GLOBALS = {}
 
 def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
@@ -533,7 +535,15 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
 #     return formulas
 
 
-def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
+#def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
+    
+def compute_best_sentence_iou_niloo(args):
+    (unit,) = args
+
+    acts = GLOBALS["acts"][:, unit]
+    feats = GLOBALS["feats"]
+    dataset = GLOBALS["dataset"]
+     
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
 #     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
@@ -542,7 +552,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
-    feats_to_search = list(range(feats.shape[1]))
+    feats_to_search = list(range(feats["onehot"].shape[1]))     #list(range(feats.shape[1]))
     formulas = {}
     masks = []
 #     print(" len(feats_to_search) ", len(feats_to_search))
@@ -703,21 +713,24 @@ def quantile_features(feats):
     quantiles = get_quantiles(feats, settings.ALPHA)
     return feats > quantiles[np.newaxis]
 
-#My, add cluster labels to search_feature:
-def search_feats(acts, states, feats, weights, dataset, cluster_labels):
+#My, add cluster labels to search_feature: # remove it now
+def search_feats(acts, states, feats, weights, dataset):
     rfile = os.path.join(settings.RESULT, "result.csv")
     if os.path.exists(rfile):
         print(f"Loading cached {rfile}")
         return pd.read_csv(rfile).to_dict("records")
 
-    # Set global vars
+    #Set global vars
     GLOBALS["acts"] = acts
     GLOBALS["states"] = states
 
-    GLOBALS["feats"] = feats[0]
-    GLOBALS["dataset"] = feats[1]
-    feats_vocab = feats[1]
-
+    GLOBALS["feats"] = feats.get('onehot')  #feats[0]
+    GLOBALS["dataset"] = feats.get('multi')
+#     print("feats keys:", feats.keys())   # feats is a class dictionary.  #feats.keys: ['onehot', 'multi']
+    feats_vocab = feats.get('multi')
+  
+    
+    
     def namer(i):
         return feats_vocab["itos"][i]
 
@@ -727,7 +740,7 @@ def search_feats(acts, states, feats, weights, dataset, cluster_labels):
     def cat_namer_fine(i):
         return ":".join(feats_vocab["itos"][i].split(":")[:2])
 
-    ioufunc = compute_best_sentence_iou
+    ioufunc = compute_best_sentence_iou_niloo 
 
     records = []
     if settings.NEURONS is None:
@@ -768,7 +781,7 @@ def search_feats(acts, states, feats, weights, dataset, cluster_labels):
                 "w_entail": entail_weight,
                 "w_neutral": neutral_weight,
                 "w_contra": contra_weight,
-                "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
+#                 "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
             }
             records.append(r)
             pbar.update()
@@ -974,7 +987,8 @@ def main():
         weights = model.mlp.weight.t().detach().cpu().numpy()
     else:
         weights = model.mlp[-1].weight.t().detach().cpu().numpy()
-
+        
+    
     print("Extracting features")
     toks, states, feats, idxs, all_states_tensor = extract_features(
         model,
@@ -982,13 +996,18 @@ def main():
     )
     print("Computing quantiles")
     acts = quantile_features(states)
+    print("Extracting sentence token features")
+
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
 #     print('toks, tok_feats ', np.array(toks).shape, np.array(tok_feats).shape)
     # tok_feats_vocab = 'oth:overlap:overlap50': 4085, 'oth:overlap:overlap75': 4086
     
-    
-#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
-    
+    print("Mask search")
+    #records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #remove cluster_labels
+    #pass  cluster labels to search_feat here
+
+    print("Mask search")
+    records = search_feats(acts, states, feats, weights, dataset) #remove cluster_labels
 
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
@@ -1095,14 +1114,25 @@ def main():
 #     with open('output.pkl', 'wb') as f:
 #         pickle.dump(output, f)
 
+    print("Load predictions")
+    mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
+    dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
+    predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
+    # Add the feature activations so we can do correlation
+    preds = pd.read_csv(predf)
+    print("preds.shape ", preds.shape)
+
+    save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
+
+
     print("Visualizing features")
     from vis import sentence_report
 
     sentence_report.make_html(
-        #records,
+        records,
         # Features
         toks,
-        states,
+        states,  
         (tok_feats, tok_feats_vocab),
         idxs,
         preds,

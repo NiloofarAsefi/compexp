@@ -187,7 +187,7 @@ def make_card(
 
 
 def make_html(
-    #records,
+    records,
     # Standard feats
     toks,
     states,
