@@ -1002,10 +1002,19 @@ def main():
     activations = torch.stack(all_states_tensor, dim=0)                           
     #np.matrix(all_states_tensor) #dimention (10000, 1024) # so the size of unit activations should be 10000.
 #     print("Nillllasf", len(all_states_tensor), len(all_states_tensor[0]),len(all_states_tensor[1]))
-    selected_units = [0]
+
+    print("Load predictions")
+    mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
+    dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
+    predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
+    # Add the feature activations so we can do correlation
+    preds = pd.read_csv(predf)
+    print("preds.shape ", preds.shape)
+    
+    selected_units = [0, 80, 99]
     output = []
-    #for unit in range(1024):
-    for unit in selected_units:
+    for unit in range(1024):
+    #for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
 #         print("unit activations", unit_activations.shape)
@@ -1075,7 +1084,7 @@ def main():
                     bitmaps,
                     segmentations_info=masks_info,
                     heuristic=heuristic_function, # mmesh is not needed.
-                    length=cfg.max_formula_length,                         #replace length=FLAGS.length to length=cfg.max_formula_length  
+                    length=cfg.max_formula_length,                         
                     max_size_mask=cfg.get_max_mask_size(),
                     mask_shape=cfg.get_mask_shape(),
                     device=cfg.device,
@@ -1086,6 +1095,13 @@ def main():
                 with open(file_algo_results, "rb") as file:
                     best_label, best_iou, visited = pickle.load(file)
             #string_label = F_src.get_formula_str(best_label, dataset.labels)
+            
+               # Add preds for the current unit
+            if unit < len(preds):  # Check bounds
+                prediction = preds.iloc[unit].to_dict()
+            else:
+                prediction = None
+            
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
@@ -1093,9 +1109,10 @@ def main():
                 #f"Best Label: {string_label} - "
                 f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
+                f"Prediction: {prediction}" #add prediction 
             )
-            output += [[unit, cluster_index, best_label, best_iou, visited]]
-    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited'] )
+            output += [[unit, cluster_index, best_label, best_iou, visited, prediction]]
+    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited', 'prediction'] )
     df.to_csv("output.csv")
 #     with open('output.pkl', 'wb') as f:
 #         pickle.dump(output, f)
