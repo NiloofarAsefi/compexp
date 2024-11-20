@@ -233,6 +233,7 @@ def get_mask(feats, f, dataset, feat_type):
         else:
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
+            #print(f"Type of fval: {type(fval)}, Value of fval: {fval}") #Type of fval: <class 'int'>, Value of fval: 0
             fname = dataset["itos"][fval]
             part, fword = fname.split(":", maxsplit=1)
 
@@ -685,7 +686,7 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
  #print("token_masks, tok_feats_vocab", token_masks, tok_feats_vocab) #teken_masks:TrueFalse,tok_feats_vocab are tokens: hyp:hotel
     return token_masks, tok_feats_vocab
 
-def compute_best_sentence_iou_niloo(unit, acts, feats, dataset, tok_feats_vocab):
+def compute_best_sentence_iou_niloo(unit, acts, feats, tok_feats_vocab, dataset):
      
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
