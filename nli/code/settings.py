@@ -13,7 +13,7 @@ TOPN = 5
 DEBUG = False
 
 #My, number of clusters
-NUM_CLUSTERS = 5  
+NUM_CLUSTERS = 3  
 
 # Choices: iou, precision, recall
 METRIC = "iou"

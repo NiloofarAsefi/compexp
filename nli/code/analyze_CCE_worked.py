@@ -932,7 +932,7 @@ def main():
         model_type ="bowman",
         root_models="models/",
         pretrained="snli",
-        num_clusters=5,
+        num_clusters=3,   #change to 3
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
@@ -1011,10 +1011,10 @@ def main():
     preds = pd.read_csv(predf)
     print("preds.shape ", preds.shape)
     
-    selected_units = [0, 80, 99]
+    selected_units = [0,6, 8, 99]
     output = []
-    for unit in range(1024):
-    #for unit in selected_units:
+    #for unit in range(1024):
+    for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
 #         print("unit activations", unit_activations.shape)
