@@ -544,267 +544,7 @@ def compute_iou(formula, acts, feats, dataset, feat_type="word"):
 #     feats = GLOBALS["feats"]
 #     dataset = GLOBALS["dataset"]
 
-def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
-     
-    # Check if activations for the unit meet the minimum activation threshold
-    acts = acts.reshape(-1)
-#     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
-#     if acts.sum() < settings.MIN_ACTS:
-#         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
-#         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
-#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
-    
-    feats_to_search =list(range(feats.shape[1]))  
-    formulas = {}
-    masks = []
-#     print(" len(feats_to_search) ", len(feats_to_search))
-    for fval in feats_to_search:
-        formula = FM.Leaf(fval)
-#         print(" forloop featstosearch ", formula)
-        iou_score = compute_iou(
-            formula, acts, feats, dataset, feat_type="sentence"
-        )
-    
-        formulas[formula] = iou_score
-#         print('nillooooo ', formulas[formula], formula, len(acts), len(feats))
-
-        for op, negate in OPS["lemma"]:
-            new_formula = formula
-            if negate:
-                new_formula = FM.Not(new_formula)
-            new_formula = op(new_formula)
-            new_iou = compute_iou(
-                new_formula, acts, feats, dataset, feat_type="sentence"
-            )
-            formulas[new_formula] = new_iou
-
-    nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
-    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-
-    for i in range(settings.MAX_FORMULA_LENGTH - 1):
-        new_formulas = {}
-        for formula in formulas:
-            for feat in nonzero_iou:
-                for op, negate in OPS["all"]:
-                    if not isinstance(feat, FM.F):
-                        new_formula = FM.Leaf(feat)
-                    else:
-                        new_formula = feat
-                    if negate:
-                        new_formula = FM.Not(new_formula)
-                    new_formula = op(formula, new_formula)
-                    new_iou = compute_iou(
-                        new_formula, acts, feats, dataset, feat_type="sentence"
-                    )
-                    new_formulas[new_formula] = new_iou
-
-        formulas.update(new_formulas)
-        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-
-    best = Counter(formulas).most_common(1)[0]
-
-    # Generate and store binary masks for each formula
-    for formula in formulas:
-        mask = get_mask(feats, formula, dataset, feat_type="sentence")
-        masks.append(mask)  # Store directly as dense mask
-
-    return masks
-
-def pad_collate(batch, sort=True):
-    src, src_feats, src_multifeats, src_len, idx = zip(*batch)
-    idx = torch.tensor(idx)
-    src_len = torch.tensor(src_len)
-    src_pad = pad_sequence(src, padding_value=data.analysis.PAD_IDX)
-    # NOTE: part of speeches are padded with 0 - we don't actually care here
-    src_feats_pad = pad_sequence(src_feats, padding_value=-1)
-    src_multifeats_pad = pad_sequence(src_multifeats, padding_value=-1)
-
-    if sort:
-        src_len_srt, srt_idx = torch.sort(src_len, descending=True)
-        src_pad_srt = src_pad[:, srt_idx]
-        src_feats_pad_srt = src_feats_pad[:, srt_idx]
-        src_multifeats_pad_srt = src_multifeats_pad[:, srt_idx]
-        idx_srt = idx[srt_idx]
-        return (
-            src_pad_srt,
-            src_feats_pad_srt,
-            src_multifeats_pad_srt,
-            src_len_srt,
-            idx_srt,
-        )
-    return src_pad, src_feats_pad, src_multifeats_pad, src_len, idx
-
-
-def pairs(x):
-    """
-    (max_len, batch_size, *feats)
-    -> (max_len, batch_size / 2, 2, *feats)
-    """
-    if x.ndim == 1:
-        return x.unsqueeze(1).view(-1, 2)
-    else:
-        return x.unsqueeze(2).view(x.shape[0], -1, 2, *x.shape[2:])
-
-
-def extract_features(
-    model,
-    dataset,
-):
-    loader = DataLoader(
-        dataset,
-        shuffle=False,
-        batch_size=32,
-        collate_fn=lambda batch: pad_collate(batch, sort=False),
-    )
-
-    all_srcs = []
-    all_states = []
-    all_states_tensor = []
-    all_feats = []
-    all_multifeats = []
-    all_idxs = []
-    for src, src_feats, src_multifeats, src_lengths, idx in tqdm(loader):
-        #  words = dataset.to_text(src)
-        if settings.CUDA:
-            src = src.cuda()
-            src_lengths = src_lengths.cuda()
-        # Memory bank - hidden states for each step
-        with torch.no_grad():
-            # Combine q/h pairs
-            src_one = src.squeeze(2)
-            src_one_comb = pairs(src_one)
-            src_lengths_comb = pairs(src_lengths)
-
-            s1 = src_one_comb[:, :, 0]
-            s1len = src_lengths_comb[:, 0]
-
-            s2 = src_one_comb[:, :, 1]
-            s2len = src_lengths_comb[:, 1]
-
-            final_reprs = model.get_final_reprs(s1, s1len, s2, s2len)
-
-        # Pack the sequence
-        all_srcs.extend(list(np.transpose(src_one_comb.cpu().numpy(), (1, 2, 0))))
-        all_feats.extend(
-            list(np.transpose(pairs(src_feats).cpu().numpy(), (1, 2, 0, 3)))
-        )
-        all_multifeats.extend(
-            list(np.transpose(pairs(src_multifeats).cpu().numpy(), (1, 2, 0, 3)))
-        )
-        all_states.extend(list(final_reprs.cpu().numpy()))
-        all_states_tensor.extend(list(final_reprs.cpu()))
-        all_idxs.extend(list(pairs(idx).cpu().numpy()))
-
-    all_feats = {"onehot": all_feats, "multi": all_multifeats}
-
-    #print("Shape of all_states_tensor:", len(all_states_tensor), all_states_tensor[0].shape)
-    #print("First few entries in all_states_tensor:", all_states_tensor[:5])
-    return all_srcs, all_states, all_feats, all_idxs, all_states_tensor
-
-    
-
-def get_quantiles(feats, alpha):
-    quantiles = np.apply_along_axis(lambda a: np.quantile(a, 1 - alpha), 0, feats)
-    return quantiles
-
-
-def quantile_features(feats):
-    if settings.ALPHA is None:
-        return np.stack(feats) > 0
-
-    quantiles = get_quantiles(feats, settings.ALPHA)
-    return feats > quantiles[np.newaxis]
-
-#My, add cluster labels to search_feature: # remove it now
-def search_feats(acts, states, feats, weights, dataset):
-    rfile = os.path.join(settings.RESULT, "result.csv")
-    if os.path.exists(rfile):
-        print(f"Loading cached {rfile}")
-        return pd.read_csv(rfile).to_dict("records")
-
-    #Set global vars
-    GLOBALS["acts"] = acts
-    GLOBALS["states"] = states
-    GLOBALS["feats"] = feats[0]
-    GLOBALS["dataset"] = feats[1]
-    feats_vocab = feats[1]
-
-#     GLOBALS["feats"] = feats.get('onehot')  #feats[0]
-#     GLOBALS["dataset"] = feats.get('multi')
-# #     print("feats keys:", feats.keys())   # feats is a class dictionary.  #feats.keys: ['onehot', 'multi']
-#     feats_vocab = feats.get('multi')
-  
-    #print("feats_vocab",feats_vocab) # True and False is shown. but in original CE, it is tokens... 
-    
-    def namer(i):
-        return feats_vocab["itos"][i]
-
-    def cat_namer(i):
-        return feats_vocab["itos"][i].split(":")[0]
-
-    def cat_namer_fine(i):
-        return ":".join(feats_vocab["itos"][i].split(":")[:2])
-
-    ioufunc = compute_best_sentence_iou_niloo
-    #print("Debugggging ioufunc",ioufunc) 
-    #function compute_best_sentence_iou_niloo at 0x7f047464b160
-
-    records = []
-    if settings.NEURONS is None:
-        units = range(acts.shape[1])
-    else:
-        units = settings.NEURONS
-    mp_args = [(u,) for u in units]
-
-    if settings.PARALLEL < 1:
-        pool_cls = util.FakePool
-    else:
-        pool_cls = mp.Pool
-
-    n_done = 0
-    with pool_cls(settings.PARALLEL) as pool, tqdm(
-        total=len(units), desc="Units"
-    ) as pbar:
-        for res in pool.imap_unordered(ioufunc, mp_args):
-            
-            unit = res["unit"]
-            best_lab, best_iou = res["best"]
-            print("res, best_lab, best_iou", best_lab, best_iou) 
-            best_name = best_lab.to_str(namer, sort=True)
-            best_cat = best_lab.to_str(cat_namer, sort=True)
-            best_cat_fine = best_lab.to_str(cat_namer_fine, sort=True)
-
-            entail_weight = weights[unit, 0]
-            neutral_weight = weights[unit, 1]
-            contra_weight = weights[unit, 2]
-
-            if best_iou > 0:
-                tqdm.write(f"{unit:02d}\t{best_name}\t{best_iou:.3f}")
-            r = {
-                "neuron": unit,
-                "feature": best_name,
-                "category": best_cat,
-                "category_fine": best_cat_fine,
-                "iou": best_iou,
-                "feature_length": len(best_lab),
-                "w_entail": entail_weight,
-                "w_neutral": neutral_weight,
-                "w_contra": contra_weight,
-#                 "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
-            }
-            records.append(r)
-            pbar.update()
-            n_done += 1
-            if n_done % settings.SAVE_EVERY == 0:
-                pd.DataFrame(records).to_csv(rfile, index=False)
-
-        # Save progress
-        if len(records) % 32 == 0:
-            pd.DataFrame(records).to_csv(rfile, index=False)
-
-    pd.DataFrame(records).to_csv(rfile, index=False)
-    return records
-
+# Move to_Sentence function above the compute_best_sentence_iou_niloo:
 
 def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
     """
@@ -942,8 +682,282 @@ def to_sentence(toks, feats, dataset, tok_feats_vocab=None):
             oth_prefixed = f"oth:{oth_type}:{oth_name}"
             oi = tok_feats_vocab["stoi"][oth_prefixed]
             token_masks[i, oi] = oth_u
-
+ #print("token_masks, tok_feats_vocab", token_masks, tok_feats_vocab) #teken_masks:TrueFalse,tok_feats_vocab are tokens: hyp:hotel
     return token_masks, tok_feats_vocab
+
+def compute_best_sentence_iou_niloo(unit, acts, feats, dataset, tok_feats_vocab):
+     
+    # Check if activations for the unit meet the minimum activation threshold
+    acts = acts.reshape(-1)
+#     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
+#     if acts.sum() < settings.MIN_ACTS:
+#         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
+#         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
+#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+    
+    feats_to_search =list(range(feats.shape[1]))  
+    formulas = {}
+    masks = []
+#     print(" len(feats_to_search) ", len(feats_to_search))
+    for fval in feats_to_search:
+        formula = FM.Leaf(fval)
+#       print(" forloop featstosearch ", formula)
+        iou_score = compute_iou(
+            formula, acts, feats, dataset, feat_type="sentence"
+        )
+    
+        formulas[formula] = iou_score
+#         print('nillooooo ', formulas[formula], formula, len(acts), len(feats))
+
+        for op, negate in OPS["lemma"]:
+            new_formula = formula
+            if negate:
+                new_formula = FM.Not(new_formula)
+            new_formula = op(new_formula)
+            new_iou = compute_iou(
+                new_formula, acts, feats, dataset, feat_type="sentence"
+            )
+            formulas[new_formula] = new_iou
+
+    nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
+    formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+
+    for i in range(settings.MAX_FORMULA_LENGTH - 1):
+        new_formulas = {}
+        for formula in formulas:
+            for feat in nonzero_iou:
+                for op, negate in OPS["all"]:
+                    if not isinstance(feat, FM.F):
+                        new_formula = FM.Leaf(feat)
+                    else:
+                        new_formula = feat
+                    if negate:
+                        new_formula = FM.Not(new_formula)
+                    new_formula = op(formula, new_formula)
+                    new_iou = compute_iou(
+                        new_formula, acts, feats, dataset, feat_type="sentence"
+                    )
+                    new_formulas[new_formula] = new_iou
+
+        formulas.update(new_formulas)
+        formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
+       
+
+    best = Counter(formulas).most_common(1)[0]
+    #I want to add best formula string to result
+    best_formula_str = best[0].to_str(tok_feats_vocab["itos"], sort=True) if best else "None"
+
+
+    # Generate and store binary masks for each formula
+    for formula in formulas:
+        mask = get_mask(feats, formula, dataset, feat_type="sentence")
+        masks.append(mask)  # Store directly as dense mask
+
+    #return masks
+    return {
+            "masks": masks,
+            "best_formula": best[0],              #add best formula string 
+            "iou": best[1],
+            "formula_str": best_formula_str,
+        }
+
+
+def pad_collate(batch, sort=True):
+    src, src_feats, src_multifeats, src_len, idx = zip(*batch)
+    idx = torch.tensor(idx)
+    src_len = torch.tensor(src_len)
+    src_pad = pad_sequence(src, padding_value=data.analysis.PAD_IDX)
+    # NOTE: part of speeches are padded with 0 - we don't actually care here
+    src_feats_pad = pad_sequence(src_feats, padding_value=-1)
+    src_multifeats_pad = pad_sequence(src_multifeats, padding_value=-1)
+
+    if sort:
+        src_len_srt, srt_idx = torch.sort(src_len, descending=True)
+        src_pad_srt = src_pad[:, srt_idx]
+        src_feats_pad_srt = src_feats_pad[:, srt_idx]
+        src_multifeats_pad_srt = src_multifeats_pad[:, srt_idx]
+        idx_srt = idx[srt_idx]
+        return (
+            src_pad_srt,
+            src_feats_pad_srt,
+            src_multifeats_pad_srt,
+            src_len_srt,
+            idx_srt,
+        )
+    return src_pad, src_feats_pad, src_multifeats_pad, src_len, idx
+
+
+def pairs(x):
+    """
+    (max_len, batch_size, *feats)
+    -> (max_len, batch_size / 2, 2, *feats)
+    """
+    if x.ndim == 1:
+        return x.unsqueeze(1).view(-1, 2)
+    else:
+        return x.unsqueeze(2).view(x.shape[0], -1, 2, *x.shape[2:])
+
+
+def extract_features(
+    model,
+    dataset,
+):
+    loader = DataLoader(
+        dataset,
+        shuffle=False,
+        batch_size=32,
+        collate_fn=lambda batch: pad_collate(batch, sort=False),
+    )
+
+    all_srcs = []
+    all_states = []
+    all_states_tensor = []
+    all_feats = []
+    all_multifeats = []
+    all_idxs = []
+    for src, src_feats, src_multifeats, src_lengths, idx in tqdm(loader):
+        #  words = dataset.to_text(src)
+        if settings.CUDA:
+            src = src.cuda()
+            src_lengths = src_lengths.cuda()
+        # Memory bank - hidden states for each step
+        with torch.no_grad():
+            # Combine q/h pairs
+            src_one = src.squeeze(2)
+            src_one_comb = pairs(src_one)
+            src_lengths_comb = pairs(src_lengths)
+
+            s1 = src_one_comb[:, :, 0]
+            s1len = src_lengths_comb[:, 0]
+
+            s2 = src_one_comb[:, :, 1]
+            s2len = src_lengths_comb[:, 1]
+
+            final_reprs = model.get_final_reprs(s1, s1len, s2, s2len)
+
+        # Pack the sequence
+        all_srcs.extend(list(np.transpose(src_one_comb.cpu().numpy(), (1, 2, 0))))
+        all_feats.extend(
+            list(np.transpose(pairs(src_feats).cpu().numpy(), (1, 2, 0, 3)))
+        )
+        all_multifeats.extend(
+            list(np.transpose(pairs(src_multifeats).cpu().numpy(), (1, 2, 0, 3)))
+        )
+        all_states.extend(list(final_reprs.cpu().numpy()))
+        all_states_tensor.extend(list(final_reprs.cpu()))
+        all_idxs.extend(list(pairs(idx).cpu().numpy()))
+
+    all_feats = {"onehot": all_feats, "multi": all_multifeats}
+
+    #print("Shape of all_states_tensor:", len(all_states_tensor), all_states_tensor[0].shape)
+    #print("First few entries in all_idxs:", all_idxs[:5]) #First few entries in all_idxs: [array([0, 1]), array([2, 3])]
+    return all_srcs, all_states, all_feats, all_idxs, all_states_tensor
+
+    
+
+def get_quantiles(feats, alpha):
+    quantiles = np.apply_along_axis(lambda a: np.quantile(a, 1 - alpha), 0, feats)
+    return quantiles
+
+
+def quantile_features(feats):
+    if settings.ALPHA is None:
+        return np.stack(feats) > 0
+
+    quantiles = get_quantiles(feats, settings.ALPHA)
+    return feats > quantiles[np.newaxis]
+
+#My, add cluster labels to search_feature: # remove it now
+def search_feats(acts, states, feats, weights, dataset):
+    rfile = os.path.join(settings.RESULT, "result.csv")
+    if os.path.exists(rfile):
+        print(f"Loading cached {rfile}")
+        return pd.read_csv(rfile).to_dict("records")
+
+    #Set global vars
+    GLOBALS["acts"] = acts
+    GLOBALS["states"] = states
+    GLOBALS["feats"] = feats[0]
+    GLOBALS["dataset"] = feats[1]
+    feats_vocab = feats[1]
+
+#     GLOBALS["feats"] = feats.get('onehot')  #feats[0]
+#     GLOBALS["dataset"] = feats.get('multi')
+# #     print("feats keys:", feats.keys())   # feats is a class dictionary.  #feats.keys: ['onehot', 'multi']
+#     feats_vocab = feats.get('multi')
+  
+    #print("feats_vocab",feats_vocab) # True and False is shown. but in original CE, it is tokens... 
+    
+    def namer(i):
+        return feats_vocab["itos"][i]
+
+    def cat_namer(i):
+        return feats_vocab["itos"][i].split(":")[0]
+
+    def cat_namer_fine(i):
+        return ":".join(feats_vocab["itos"][i].split(":")[:2])
+
+    ioufunc = compute_best_sentence_iou_niloo
+    #print("Debugggging ioufunc",ioufunc) 
+    #function compute_best_sentence_iou_niloo at 0x7f047464b160
+
+    records = []
+    if settings.NEURONS is None:
+        units = range(acts.shape[1])
+    else:
+        units = settings.NEURONS
+    mp_args = [(u,) for u in units]
+
+    if settings.PARALLEL < 1:
+        pool_cls = util.FakePool
+    else:
+        pool_cls = mp.Pool
+
+    n_done = 0
+    with pool_cls(settings.PARALLEL) as pool, tqdm(
+        total=len(units), desc="Units"
+    ) as pbar:
+        for res in pool.imap_unordered(ioufunc, mp_args):
+            
+            unit = res["unit"]
+            best_lab, best_iou = res["best"]
+            #print("res, best_lab, best_iou", best_lab, best_iou) 
+            best_name = best_lab.to_str(namer, sort=True)
+            best_cat = best_lab.to_str(cat_namer, sort=True)
+            best_cat_fine = best_lab.to_str(cat_namer_fine, sort=True)
+
+            entail_weight = weights[unit, 0]
+            neutral_weight = weights[unit, 1]
+            contra_weight = weights[unit, 2]
+
+            if best_iou > 0:
+                tqdm.write(f"{unit:02d}\t{best_name}\t{best_iou:.3f}")
+            r = {
+                "neuron": unit,
+                "feature": best_name,
+                "category": best_cat,
+                "category_fine": best_cat_fine,
+                "iou": best_iou,
+                "feature_length": len(best_lab),
+                "w_entail": entail_weight,
+                "w_neutral": neutral_weight,
+                "w_contra": contra_weight,
+#                 "cluster": cluster_labels[unit] #My Add cluster labels to r (representing each record)
+            }
+            records.append(r)
+            pbar.update()
+            n_done += 1
+            if n_done % settings.SAVE_EVERY == 0:
+                pd.DataFrame(records).to_csv(rfile, index=False)
+
+        # Save progress
+        if len(records) % 32 == 0:
+            pd.DataFrame(records).to_csv(rfile, index=False)
+
+    pd.DataFrame(records).to_csv(rfile, index=False)
+    return records
+
+
 
 
 def main():
@@ -1048,6 +1062,9 @@ def main():
 #         print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations))
 #         print("Mean of unit_activations:", unit_activations.mean().item()) 
 #         print("Max of unit_activations:", unit_activations.max().item())
+
+
+
         if unit_activations.max().item()== 0 and unit_activations.mean().item()==0:
             continue
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
@@ -1071,7 +1088,7 @@ def main():
                     mask_shape=mask_shape,
                 )
 #                 print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
-                formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+                formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab, dataset)
                 feat_type = "sentence"
 #                 print("formula",formula)
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
@@ -1119,37 +1136,51 @@ def main():
                     best_label, best_iou, visited = pickle.load(file)
             #string_label = F_src.get_formula_str(best_label, dataset.labels)
             
+            # Get the best formula and related metrics
+            result = compute_best_sentence_iou_niloo(
+                unit,  # Unit number
+                unit_activations.cpu().detach().numpy().astype(int),  # Activations
+                tok_feats,  # Token features
+                tok_feats_vocab,  
+                dataset,
+            )
+            # Extract formula string, IoU, and other information
+            best_formula_str = result["formula_str"]  # Extract best_formula_str
+            best_iou = result["iou"]
+            best_formula = result["best_formula"] 
+            
                 # Add preds for the current unit
             if unit < len(preds):  # Check bounds
                 prediction = preds.iloc[unit].to_dict()
             else:
                 prediction = None
+                
 
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
                 f"best_label: {best_label}"
+                f"best_formula_str: {best_formula_str}"
                 #f"Best Label: {string_label} - "
                 f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited}"
-                f"Prediction: {prediction}"
+                f"Prediction: {prediction}" #add prediction 
+                #f"Token Features: {current_tok_feats} - " #add tok_feats    
+                #f"Token Features Vocab: {current_tok_feats_vocab}" #add tok_feats_vocab
             )
-            output += [[unit, cluster_index, best_label, best_iou, visited, prediction]] #add preds
-    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'best_label', 'best_iou', 'visited', 'prediction'] )
+            
+            
+
+            output += [[unit, cluster_index, best_label, best_formula_str, best_iou, visited, prediction]]
+            #add preds 
+    df = pd.DataFrame(output, columns= ['unit', 'cluster_index', 'best_label', 'best_formula_str', 'best_iou', 'visited', 'prediction'] )
     df.to_csv("output.csv")
 #     with open('output.pkl', 'wb') as f:
 #         pickle.dump(output, f)
-
-#     print("Load predictions")
-#     mbase = os.path.splitext(os.path.basename(settings.MODEL))[0]
-#     dbase = os.path.splitext(os.path.basename(settings.DATA))[0]
-#     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
-#     # Add the feature activations so we can do correlation
-#     preds = pd.read_csv(predf)
-#     print("preds.shape ", preds.shape)
+ 
+#token features tok_feats includes True, False
 
     save_with_acts(preds, acts, os.path.join(settings.RESULT, "preds_acts.csv"))
-
 
 
 
