@@ -129,6 +129,7 @@ def get_masks_info_nli(masks, feats, config):
 
         # Now we can safely apply operations on mask_array
         concept_areas.append(mask_array.sum())  # Calculate area as sum of true values
+        
         concept_ranges.append(range(len(mask_array)))  # Range for each concept
         concept_counts.append(len(mask_array.nonzero()[0]))  # Non-zero count
 
@@ -1011,7 +1012,7 @@ def main():
     preds = pd.read_csv(predf)
     print("preds.shape ", preds.shape)
     
-    selected_units = [0,6, 8, 99]
+    selected_units = [0, 870, 15]
     output = []
     #for unit in range(1024):
     for unit in selected_units:

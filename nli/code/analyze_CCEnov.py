@@ -746,7 +746,8 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, tok_feats_vocab, dataset)
 
     best = Counter(formulas).most_common(1)[0]
     #I want to add best formula string to result
-    best_formula_str = best[0].to_str(tok_feats_vocab["itos"], sort=True) if best else "None"
+    best_formula_str = best[0].to_str(dataset["itos"], sort=True) if best else "None"
+    #best_formula_str = best[0].to_str(tok_feats_vocab["itos"], sort=True) if best else "None"
 
 
     # Generate and store binary masks for each formula
@@ -1148,7 +1149,8 @@ def main():
             # Extract formula string, IoU, and other information
             best_formula_str = result["formula_str"]  # Extract best_formula_str
             best_iou = result["iou"]
-            best_formula = result["best_formula"] 
+            best_formula = result["best_formula"]
+            print("best_formula_str, best_iou,  best_formula", best_formula_str, best_iou, best_formula)
             
                 # Add preds for the current unit
             if unit < len(preds):  # Check bounds

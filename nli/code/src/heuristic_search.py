@@ -293,7 +293,7 @@ def perform_heuristic_search(
                 {next_beam_formulas[index_beam]: next_beam_iou[index_beam]}
             )
 #         print('ya abalfazel ... all next_beam_formulas ', next_beam_formulas)
-        print('ya abalfazel ... all beam ', beam)
+        #print('ya abalfazel ... all beam ', beam)
         # Trim the beam
         beam = dict(Counter(beam).most_common(beam_size))
        
