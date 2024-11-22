@@ -1,10 +1,7 @@
-,unit,cluster_index,best_label,best_iou,visited,prediction
-0,0,0,1,0.1538461595773697,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-1,0,1,1,0.1056661531329155,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-2,0,2,1,0.04167092218995094,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-3,870,0,1,0.06052963435649872,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-4,870,1,1,0.030688729137182236,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-5,870,2,1,0.01120249554514885,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-6,15,0,1,0.0449843630194664,468,"{'gt': 'entailment', 'pred': 'entailment', 'correct': True}"
-7,15,1,1,0.029411764815449715,468,"{'gt': 'entailment', 'pred': 'entailment', 'correct': True}"
-8,15,2,1,0.007909045554697514,468,"{'gt': 'entailment', 'pred': 'entailment', 'correct': True}"
+,unit,cluster_index,formula_str,best_label,best_iou,visited,prediction
+0,0,0,pre:tok:is,1,0.1439121961593628,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+1,0,1,pre:tok:is,1,0.10853508114814758,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+2,0,2,pre:tok:is,1,0.055937595665454865,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
+3,99,0,pre:tok:two,8,0.05418924614787102,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+4,99,1,pre:tok:two,8,0.035974305123090744,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+5,99,2,pre:tok:two,8,0.014964789152145386,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"

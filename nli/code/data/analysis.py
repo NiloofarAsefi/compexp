@@ -36,12 +36,14 @@ class AnalysisDataset:
             }
             self.stoi = self.fields["src"].base_field.vocab.stoi
             self.itos = self.fields["src"].base_field.vocab.itos
+            #print(f"Setting itos from fields['src']: {type(self.itos)}, Sample: {self.itos[:10] if isinstance(self.itos, list) else 'Not a list'}")
         else:
             self.ignore_tokens = {
                 "PAD",
             }
             self.stoi = self.fields["stoi"]
             self.itos = self.fields["itos"]
+            #print(f"Setting itos directly from fields['itos']: {type(self.itos)}, Sample: {self.itos[:10] if isinstance(self.itos, list) else 'Not a list'}")
 
         self.pos_stoi = {}
 

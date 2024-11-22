@@ -538,7 +538,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
 #     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
-    if acts.sum() < settings.MIN_ACTS:
+    if acts.sum() < settings.MIN_ACTS:       #MIN_ACTS= 500 # Minimum number of activations to analyze a neuron
         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
@@ -1012,7 +1012,7 @@ def main():
     preds = pd.read_csv(predf)
     print("preds.shape ", preds.shape)
     
-    selected_units = [0, 870, 15]
+    selected_units = [12]
     output = []
     #for unit in range(1024):
     for unit in selected_units:

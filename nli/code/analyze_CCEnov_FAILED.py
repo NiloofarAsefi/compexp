@@ -233,10 +233,17 @@ def get_mask(feats, f, dataset, feat_type):
         else:
             assert isinstance(f.val, FM.Leaf)
             fval = f.val.val
+             # Debugging lines
+            print(f"Keys in dataset['itos']: {list(dataset['itos'].keys())[:10]}")
+            print(f"First 10 values of fval in feats_to_search: {feats_to_search[:10]}")
+            print(f"Debug: Type of fval: {type(fval)}, Value of fval: {fval}")
+            
             #print(f"Type of fval: {type(fval)}, Value of fval: {fval}") #Type of fval: <class 'int'>, Value of fval: 0
             fname = dataset["itos"][fval]
-            part, fword = fname.split(":", maxsplit=1)
+            print(f"Type of dataset['itos']: {type(dataset['itos'])}")
+            print(f"Sample keys in dataset['itos']: {list(dataset['itos'].keys())[:10]}")
 
+            part, fword = fname.split(":", maxsplit=1)
             neighbors = get_neighbors(fword)
             part_neighbors = [f"{part}:{word}" for word in neighbors]
             neighbor_idx = [
@@ -691,10 +698,10 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, tok_feats_vocab, dataset)
     # Check if activations for the unit meet the minimum activation threshold
     acts = acts.reshape(-1)
 #     print('compute_best_sentence_iou: ', unit, acts.shape, feats.shape)
-#     if acts.sum() < settings.MIN_ACTS:
-#         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
-#         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
-#         return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+    if acts.sum() < settings.MIN_ACTS: # MIN_ACTS =500 
+        print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
+        null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
+        return {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
     feats_to_search =list(range(feats.shape[1]))  
     formulas = {}
@@ -743,8 +750,17 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, tok_feats_vocab, dataset)
         formulas.update(new_formulas)
         formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
        
-
+    
+    print(f"Formulas before selecting best: {formulas}")
     best = Counter(formulas).most_common(1)[0]
+    print("Debugg for best")
+    if best:
+        print(f"Best formula: {best[0]}")
+        best_formula_str = best[0].to_str(tok_feats_vocab["itos"], sort=True)
+    else:
+        print("No best formula found.")
+        best_formula_str = "None"
+    
     #I want to add best formula string to result
     best_formula_str = best[0].to_str(dataset["itos"], sort=True) if best else "None"
     #best_formula_str = best[0].to_str(tok_feats_vocab["itos"], sort=True) if best else "None"
