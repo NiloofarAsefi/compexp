@@ -1112,7 +1112,7 @@ def main():
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
 #                 f"best_label: {best_label}"
-                f"Best Label String: {best_formula_str} - "
+                f"Best Label String: {best_formula_str} - "    #I added this one s
                 #f"Best Label: {string_label} - "
                 f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
                 f"Visited: {visited} - "
