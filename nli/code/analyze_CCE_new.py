@@ -40,12 +40,6 @@ from scipy.sparse import csr_matrix  # Import if sparse matrices are required
 import torch
 
 
-# def save_with_acts(preds, acts, fname):
-#     preds_to_save = preds.copy()
-#     for i in range(acts.shape[1]):
-#         preds_to_save[str(i)] = acts[:, i] * 1
-#     preds_to_save.to_csv(fname, index=False)
-
 def save_with_acts(preds, acts, fname):
     preds_to_save = preds.copy()
     # Step 1: Create a dictionary to store the new columns
@@ -59,22 +53,6 @@ def save_with_acts(preds, acts, fname):
 
 
 
-# def load_vecs(path):
-#     vecs = []
-#     vecs_stoi = {}
-#     vecs_itos = {}
-#     with open(path, "r") as f:
-#         for line in f:
-#             tok, *nums = line.split(" ")
-#             nums = np.array(list(map(float, nums)))
-
-#             assert tok not in vecs_stoi
-#             new_n = len(vecs_stoi)
-#             vecs_stoi[tok] = new_n
-#             vecs_itos[new_n] = tok
-#             vecs.append(nums)
-#     vecs = np.array(vecs)
-#     return vecs, vecs_stoi, vecs_itos
 
 def load_vecs(path):
     vecs = []
@@ -1015,8 +993,11 @@ def main():
     # Add the feature activations so we can do correlation
     preds = pd.read_csv(predf)
     print("preds.shape ", preds.shape)
+    print("First three rows of preds (using slicing):\n", preds.iloc[:3]) 
+    print( "preds.columns", preds.columns) #include gt, prediction, correct
+    print(preds.head())
     output = []
-    selected_units = [0, 99]
+    selected_units = [0, 6, 99]
     #for unit in range(1024):
     for unit in selected_units:
         unit_activations = activations[:, unit]  
@@ -1108,14 +1089,13 @@ def main():
                 premise_tokens = tok_pair[0]  # First row of tok_pair
                 hypothesis_tokens = tok_pair[1]  # Second row of tok_pair
                 
-                premise = " ".join([dataset.itos[token] for token in premise_tokens if token in dataset.stoi])
-                hypothesis = " ".join([dataset.itos[token] for token in hypothesis_tokens if token in dataset.stoi])
+                premise = " ".join([dataset.itos.get(token, "[UNK]") for token in premise_tokens])
+                hypothesis = " ".join([dataset.itos.get(token, "[UNK]") for token in hypothesis_tokens])
                 
                 act_score = unit_activations[idx].item()  # Activation score
                 gt_label = preds.iloc[idx]["gt"]  # Ground truth label
                 pred_label = preds.iloc[idx]["pred"]  # Predicted label
                 correct = preds.iloc[idx]["correct"]  # Correctness of prediction
-
 
             # Print details
             print(
