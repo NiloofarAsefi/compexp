@@ -1015,21 +1015,12 @@ def main():
     # Add the feature activations so we can do correlation
     preds = pd.read_csv(predf)
     print("preds.shape ", preds.shape)
-    
-    selected_units = [0, 99]
     output = []
+    selected_units = [0, 99]
     #for unit in range(1024):
     for unit in selected_units:
         unit_activations = activations[:, unit]  
         unit_activations = unit_activations.unsqueeze(1)
-#         print("unit activations", unit_activations.shape)
-        # for unit 80, everything was zero. 
-        # Check for non-zero values directly in `unit_activations`
-#         print(f"Checking activations for unit {unit}")
-#         print("First few entries of unit_activations:", unit_activations[:5]) 
-#         print("Non-zero entries in unit_activations:", torch.count_nonzero(unit_activations))
-#         print("Mean of unit_activations:", unit_activations.mean().item()) 
-#         print("Max of unit_activations:", unit_activations.max().item())
         if unit_activations.max().item()== 0 and unit_activations.mean().item()==0:
             continue
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
@@ -1052,17 +1043,15 @@ def main():
                     activation_range,
                     mask_shape=mask_shape,
                 )
-#                 print('print hereeeeeee ', unit_activations.shape, bitmaps.shape)
+                
                 formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
                 feat_type = "sentence"
-#                 print("formula",formula)
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
                 #print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
                 #masks_info = mask_utils_src.get_masks_info(masks, config=cfg)
                 
                  # Generate masks based on computed formula
 
-#                 print(" print masks ... ")
                 masks = get_mask(feats, formula, dataset, feat_type)
                 
                 masks_list = masks
@@ -1100,30 +1089,52 @@ def main():
                 with open(file_algo_results, "rb") as file:
                     best_label, best_iou, visited = pickle.load(file)
             #string_label = F_src.get_formula_str(best_label, dataset.labels)
-            best_formula_str = F_src.get_formula_str(best_label, tok_feats_vocab["itos"])
-
-               # Add preds for the current unit
-            if unit < len(preds):  # Check bounds
-                prediction = preds.iloc[unit].to_dict()
-            else:
-                prediction = None
+            best_formula_str = F_src.get_formula_str(best_label, tok_feats_vocab["itos"], sort=False)
             
+            
+            #best_formula_str = best_label.to_str(tok_feats_vocab["itos"])
+
+        # Iterate through dataset to extract premise, hypothesis, etc.
+#         for idx, (premise, hypothesis) in enumerate(dataset.to_text(toks)):
+#         print("First 5 entries of toks:", toks[:5])     # it is numpy-array 2 D
+#         print("Type of first element:", type(toks[0])
+                    
+            for idx, tok_pair in enumerate(toks):
+                if not isinstance(tok_pair, np.ndarray) or tok_pair.ndim != 2:
+                    print(f"Skipping invalid token pair at index {idx}: {tok_pair}")
+                    continue           
+                    
+                # Extract premise and hypothesis rows
+                premise_tokens = tok_pair[0]  # First row of tok_pair
+                hypothesis_tokens = tok_pair[1]  # Second row of tok_pair
+                
+                premise = " ".join([dataset.itos[token] for token in premise_tokens if token in dataset.stoi])
+                hypothesis = " ".join([dataset.itos[token] for token in hypothesis_tokens if token in dataset.stoi])
+                
+                act_score = unit_activations[idx].item()  # Activation score
+                gt_label = preds.iloc[idx]["gt"]  # Ground truth label
+                pred_label = preds.iloc[idx]["pred"]  # Predicted label
+                correct = preds.iloc[idx]["correct"]  # Correctness of prediction
+
+
+            # Print details
             print(
                 f"Parsed Unit: {unit} - "
                 f"Cluster: {cluster_index} - "
-#                 f"best_label: {best_label}"
-                f"Best Label String: {best_formula_str} - "    #I added this one s
-                #f"Best Label: {string_label} - "
-                f"Best IoU: {best_iou} - " #f"Best IoU: {round(best_iou,3)} - "
+                f"Best Formula: {F_src.get_formula_str(best_label, tok_feats_vocab['itos'], sort=False)} - "
+                f"Best IoU: {best_iou:.3f} - "
                 f"Visited: {visited} - "
-                f"Prediction: {prediction} - " #add prediction 
+                f"Premise: {premise} - "
+                f"Hypothesis: {hypothesis} - "
+                f"ACT: {act_score:.2f} - "
+                f"GT: {gt_label} - "
+                f"PRED: {pred_label} - "
+                f"Correct: {correct}"
             )
-            output += [[unit, cluster_index, best_formula_str, best_label, best_iou, visited, prediction]]
-    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'formula_str', 'best_label', 'best_iou', 'visited', 'prediction'] )
-    df.to_csv("output.csv")
-#     with open('output.pkl', 'wb') as f:
-#         pickle.dump(output, f)
 
+            output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
+    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
+    df.to_csv("output.csv")
 
 if __name__ == "__main__":
     main()
