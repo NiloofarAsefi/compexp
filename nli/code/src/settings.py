@@ -151,7 +151,7 @@ class Settings:
         model_type="bowman",
         root_models="models/",  # Base directory for models, I already start from compexp/nli
         pretrained=None,
-        num_clusters=3,   #change to 3
+        num_clusters=1,   #change to 3
         beam_limit=10,
         device="cpu",
         dataset="snli",

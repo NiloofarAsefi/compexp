@@ -1,7 +1,1 @@
-,unit,cluster_index,formula_str,best_label,best_iou,visited,prediction
-0,0,0,pre:tok:is,1,0.1439121961593628,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-1,0,1,pre:tok:is,1,0.10853508114814758,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-2,0,2,pre:tok:is,1,0.055937595665454865,468,"{'gt': 'neutral', 'pred': 'neutral', 'correct': True}"
-3,99,0,pre:tok:two,8,0.05418924614787102,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
-4,99,1,pre:tok:two,8,0.035974305123090744,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
-5,99,2,pre:tok:two,8,0.014964789152145386,486,"{'gt': 'neutral', 'pred': 'contradiction', 'correct': False}"
+,unit,cluster_index,Best Formula,Best IoU,Visited,Premise,Hypothesis,ACT,GT,PRED,Correct

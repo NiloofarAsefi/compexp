@@ -167,6 +167,7 @@ class BinaryNode(Node):
         return f"({self.left} {self.op} {self.right})"
 
     def to_str(self, namer, sort=False):
+
         left_name = self.left.to_str(namer, sort=sort)
         right_name = self.right.to_str(namer, sort=sort)
         if not sort or (left_name < right_name):
@@ -346,7 +347,7 @@ class OrderedFormula:
         return self.iou < __o.iou
 
 
-def get_formula_str(f: F, namer_vec: List[str]):
+def get_formula_str(f: F, namer_vec: List[str], sort=False):
     """
     Function to get the string representation of a formula.
 

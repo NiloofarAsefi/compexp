@@ -547,7 +547,8 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
 
     nonzero_iou = [k.val for k, v in formulas.items() if v > 0]
     formulas = dict(Counter(formulas).most_common(settings.BEAM_SIZE))
-
+    best_noncomp = Counter(formulas).most_common(1)[0]
+    
     for i in range(settings.MAX_FORMULA_LENGTH - 1):
         new_formulas = {}
         for formula in formulas:
@@ -574,8 +575,12 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     for formula in formulas:
         mask = get_mask(feats, formula, dataset, feat_type="sentence")
         masks.append(mask)  # Store directly as dense mask
-
-    return masks
+    final = {
+        "unit": unit,
+        "best": best,
+        "best_noncomp": best_noncomp,
+    }
+    return masks, final
 
 def pad_collate(batch, sort=True):
     src, src_feats, src_multifeats, src_len, idx = zip(*batch)
@@ -683,7 +688,52 @@ def quantile_features(feats):
     return feats > quantiles[np.newaxis]
 
 #My, add cluster labels to search_feature:
-def search_feats(acts, states, feats, weights, dataset, cluster_labels):
+def search_feats_niloo(final, feats, weights, cluster_index):
+
+    feats_vocab = feats[1]
+    def namer(i):
+        return feats_vocab["itos"][i]
+
+    def cat_namer(i):
+        return feats_vocab["itos"][i].split(":")[0]
+
+    def cat_namer_fine(i):
+        return ":".join(feats_vocab["itos"][i].split(":")[:2])
+
+    unit = final["unit"]
+    best_lab, best_iou = final["best"]
+    best_name = best_lab.to_str(namer, sort=True)
+    best_cat = best_lab.to_str(cat_namer, sort=True)
+    best_cat_fine = best_lab.to_str(cat_namer_fine, sort=True)
+
+
+#     best_formula_str = best_lab.to_str(feats_vocab["itos"], sort=True)   #I added to convert formula to string.
+    entail_weight = weights[unit, 0]
+    neutral_weight = weights[unit, 1]
+    contra_weight = weights[unit, 2]
+
+    if best_iou > 0:
+        tqdm.write(f"{unit:02d}\t{best_name}\t{best_iou:.3f}")
+    r = {
+        "neuron": unit,
+        "cluster_index": cluster_index,
+        "feature": best_name,
+        "category": best_cat,
+        "category_fine": best_cat_fine,
+        "iou": best_iou,
+        "feature_length": len(best_lab),
+        "w_entail": entail_weight,
+        "w_neutral": neutral_weight,
+        "w_contra": contra_weight,
+#         "formula_str": best_formula_str, #I added to convert formula to string.
+    }
+
+    return r
+
+
+
+
+def search_feats(acts, states, feats, weights, dataset):
     rfile = os.path.join(settings.RESULT, "result.csv")
     if os.path.exists(rfile):
         print(f"Loading cached {rfile}")
@@ -749,7 +799,6 @@ def search_feats(acts, states, feats, weights, dataset, cluster_labels):
                 "w_entail": entail_weight,
                 "w_neutral": neutral_weight,
                 "w_contra": contra_weight,
-                "cluster": cluster_labels[unit], #My Add cluster labels to r (representing each record)
                 "formula_str": best_formula_str, #I added to convert formula to string.
             }
             
@@ -915,7 +964,7 @@ def main():
         model_type ="bowman",
         root_models="models/",
         pretrained="snli",
-        num_clusters=3,   #change to 3
+        num_clusters=1,   #change to 3
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
@@ -970,13 +1019,8 @@ def main():
     # tok_feats_vocab = 'oth:overlap:overlap50': 4085, 'oth:overlap:overlap75': 4086
 
 
-#     records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset, cluster_labels) #pass  cluster labels to search_feat here
+    #records = search_feats(acts, states, (tok_feats, tok_feats_vocab), weights, dataset) #pass  cluster labels to search_feat here
 
-
-    # Initialize masks as an empty list or tensor
-# 
-#     masks_info = None  # 
-#     heuristic_function = "none"
     
     # CE has states as the activations, and CCE has activations.
     # activations (line 132) in CCE = states (1024 units) in CE
@@ -996,6 +1040,7 @@ def main():
     print("First three rows of preds (using slicing):\n", preds.iloc[:3]) 
     print( "preds.columns", preds.columns) #include gt, prediction, correct
     print(preds.head())
+    records = []
     output = []
     selected_units = [0, 6, 99]
     #for unit in range(1024):
@@ -1025,7 +1070,10 @@ def main():
                     mask_shape=mask_shape,
                 )
                 
-                formula = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+                formula, final = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+                r = search_feats_niloo(final, (tok_feats, tok_feats_vocab), weights, cluster_index) 
+                records.append(r)
+                
                 feat_type = "sentence"
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
                 #print('print hereeeeeee ', len(masks), masks[0].shape, unit_activations.shape, bitmaps.shape)
@@ -1079,42 +1127,75 @@ def main():
 #         for idx, (premise, hypothesis) in enumerate(dataset.to_text(toks)):
 #         print("First 5 entries of toks:", toks[:5])     # it is numpy-array 2 D
 #         print("Type of first element:", type(toks[0])
-                    
-            for idx, tok_pair in enumerate(toks):
-                if not isinstance(tok_pair, np.ndarray) or tok_pair.ndim != 2:
-                    print(f"Skipping invalid token pair at index {idx}: {tok_pair}")
-                    continue           
-                    
-                # Extract premise and hypothesis rows
-                premise_tokens = tok_pair[0]  # First row of tok_pair
-                hypothesis_tokens = tok_pair[1]  # Second row of tok_pair
-                
-                premise = " ".join([dataset.itos.get(token, "[UNK]") for token in premise_tokens])
-                hypothesis = " ".join([dataset.itos.get(token, "[UNK]") for token in hypothesis_tokens])
-                
-                act_score = unit_activations[idx].item()  # Activation score
-                gt_label = preds.iloc[idx]["gt"]  # Ground truth label
-                pred_label = preds.iloc[idx]["pred"]  # Predicted label
-                correct = preds.iloc[idx]["correct"]  # Correctness of prediction
+        print("records", records) 
+    
+        # convert records which is a list of dictionary to a dataframe. 
+        #save dataframe cvs. 
+    
+#         print("Visualizing features")
+#         from vis import sentence_report
 
-            # Print details
-            print(
-                f"Parsed Unit: {unit} - "
-                f"Cluster: {cluster_index} - "
-                f"Best Formula: {F_src.get_formula_str(best_label, tok_feats_vocab['itos'], sort=False)} - "
-                f"Best IoU: {best_iou:.3f} - "
-                f"Visited: {visited} - "
-                f"Premise: {premise} - "
-                f"Hypothesis: {hypothesis} - "
-                f"ACT: {act_score:.2f} - "
-                f"GT: {gt_label} - "
-                f"PRED: {pred_label} - "
-                f"Correct: {correct}"
-            )
+#         sentence_report.make_html(
+#             records,
+#             # Features
+#             toks,
+#             states,
+#             (tok_feats, tok_feats_vocab),
+#             idxs,
+#             preds,
+#             # General stuff
+#             weights,
+#             dataset,
+#             settings.RESULT,
+#         )
+    
 
-            output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
-    df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
-    df.to_csv("output.csv")
+
+    
+    
+#         for idx, tok_pair in enumerate(toks):
+#             if not isinstance(tok_pair, np.ndarray) or tok_pair.ndim != 2:
+#                 print(f"Skipping invalid token pair at index {idx}: {tok_pair}")
+#                 continue           
+                    
+#                 # Extract premise and hypothesis rows
+                
+#             premise_tokens = tok_pair[0]  # First row of tok_pair
+#             print("premise_tokens", premise_tokens)
+#             hypothesis_tokens = tok_pair[1]  # Second row of tok_pair
+                
+#                 # Construct premise and hypothesis without including PAD tokens
+#             premise = " ".join([dataset.itos.get(token, "[UNK]") for token in premise_tokens if dataset.itos.get(token, "[UNK]") != "PAD"])
+#             hypothesis = " ".join([dataset.itos.get(token, "[UNK]") for token in hypothesis_tokens if dataset.itos.get(token, "[UNK]") != "PAD"])
+#             print("premise",  premise)
+                
+#             act_score = unit_activations[idx].item()  # Activation score
+#             gt_label = preds.iloc[idx]["gt"]  # Ground truth label
+#             pred_label = preds.iloc[idx]["pred"]  # Predicted label
+#             correct = preds.iloc[idx]["correct"]  # Correctness of prediction
+
+                         
+    
+#             # Print details
+#             print(
+#                 f"Parsed Unit: {unit} - "
+#                 f"Cluster: {cluster_index} - "
+#                 f"Best Formula: {F_src.get_formula_str(best_label, tok_feats_vocab['itos'], sort=False)} - "
+#                 f"Best IoU: {best_iou:.3f} - "
+#                 f"Visited: {visited} - "
+#                 f"Premise: {premise} - "
+#                 f"Hypothesis: {hypothesis} - "
+#                 f"ACT: {act_score:.2f} - "
+#                 f"GT: {gt_label} - "
+#                 f"PRED: {pred_label} - "
+#                 f"Correct: {correct}"
+#             )
+#             break
+#             output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
+#     df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
+    
+    
+    
 
 if __name__ == "__main__":
     main()
