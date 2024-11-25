@@ -67,7 +67,7 @@ def make_spans(text, tok_feats_vocab):
 def make_spans_pair(act, pair, pred_df, tok_feats_vocab, dataset):
     pre = dataset.to_text(pair[0])
     hyp = dataset.to_text(pair[1])
-
+    #print("Niloooooo pre", pre) pre is a sentence
     # Better scaling for highlighting
     if act == 0:
         actlabel = -1
@@ -75,6 +75,7 @@ def make_spans_pair(act, pair, pred_df, tok_feats_vocab, dataset):
         actlabel = act / 10
 
     pre_spans = make_spans(pre, tok_feats_vocab)
+    #print("pre_spans", pre_spans)
     hyp_spans = make_spans(hyp, tok_feats_vocab)
     pre_spans = f"<div class='pre'><strong>Premise:</strong> {pre_spans}</div>"
     hyp_spans = f"<div class='hyp'><strong>Hypothesis:</strong> {hyp_spans}</div>"
@@ -116,12 +117,19 @@ def make_card(
 ):
     # Get highest activation
     neuron = record["neuron"]
+    activation_range = record["activation_range"]
+    cluster_index = record['cluster_index']
 
     # Get states for this neuron only
-    states = states[:, neuron]
-
+    states = states[:, neuron].copy()
+    #print(" make_card states", states)
+    #print(" make_card activation_range",  activation_range)
+    #print("cluster_index", cluster_index)
+    states[~ ((states>=activation_range[0]) & (states<=activation_range[1]))]= 0
+    # states are unit_activations, for each cluster we want unit activations in activation ranges
     # Count how often neuron activates. If it's for less than 5 examples across 10k, discard it
-    if (states > 0).sum() < settings.MIN_ACTS:
+    if (states > 0).sum() < settings.MIN_ACTS:    #MIN_ACT = 0
+        #print("neuron", record["neuron"], record["cluster_index"])
         return ""
 
     # Highest activations pairs
@@ -172,6 +180,7 @@ def make_card(
 
     fmt = c.SCARD_HTML.format(
         unit=record["neuron"],
+        cluster_index = record["cluster_index"],
         iou=f"{record['iou']:.3f}",
         category=record["category"],
         label=record["feature"],

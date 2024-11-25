@@ -308,10 +308,10 @@ def perform_heuristic_search(
     
     top_result = Counter(beam).most_common(1)[0]
     
-    print(" beam, top_result",  beam, top_result)
+    #print(" beam, top_result",  beam, top_result)
 
     best_iou = top_result[1]#.item()   #for unit [0], best iou and top result is differnt values for each cluater, like 0.07, 0.04
     best_label = top_result[0]   #for unit 0, best_label is 1 for all clusters.
-    print("best_iou and best_label",best_iou, best_label)
+    #print("best_iou and best_label",best_iou, best_label)
     return best_label, best_iou, total_visited
 

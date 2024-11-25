@@ -29,8 +29,9 @@ SAVE_EVERY = 4
 # How many "maximally activating" open features to use, PER CATEGORY
 MAX_OPEN_FEATS = 5
 # Minimum number of activations to analyze a neuron
-MIN_ACTS = 500
+# MIN_ACTS = 500 becuase by clustering we have less than 500 for most neurons and let's ignore it for now
 
+MIN_ACTS = 0
 MODEL = "models/bowman_snli/6.pth"
 MODEL_TYPE = "bowman"  # choices: bowman, minimal
 RANDOM_WEIGHTS = False  # Initialize weights randomly (equivalent to an untrained model)

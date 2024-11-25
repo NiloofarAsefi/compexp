@@ -519,7 +519,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
     if acts.sum() < settings.MIN_ACTS:       #MIN_ACTS= 500 # Minimum number of activations to analyze a neuron
         print(f"Unit {unit} skipped: activation sum {acts.sum()} is below MIN_ACTS")
         null_f = (FM.Leaf(0), 0)  # Placeholder formula and score
-        return {"unit": unit, "best": null_f, "best_noncomp": null_f}
+        return None, {"unit": unit, "best": null_f, "best_noncomp": null_f}
     
     feats_to_search = list(range(feats.shape[1]))
     formulas = {}
@@ -580,6 +580,7 @@ def compute_best_sentence_iou_niloo(unit, acts, feats, dataset):
         "best": best,
         "best_noncomp": best_noncomp,
     }
+    #print("best, best_noncomp", best, best_noncomp)
     return masks, final
 
 def pad_collate(batch, sort=True):
@@ -1012,7 +1013,8 @@ def main():
         model,
         dataset,
     )
-    print ("Nilooooooo idxs", idxs)
+    #print("size states", len(states), len(states[0])) #size states 10000 1024
+ 
     print("Computing quantiles")
     acts = quantile_features(states)
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
@@ -1037,21 +1039,21 @@ def main():
     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
     # Add the feature activations so we can do correlation
     preds = pd.read_csv(predf)
-    #print("preds.shape ", preds.shape)
-    #print("First three rows of preds (using slicing):\n", preds.iloc[:3]) 
-    #print( "preds.columns", preds.columns) #include gt, prediction, correct
-    #print(preds.head())
     records = []
     output = []
-    selected_units = [0, 6, 99]
-    #for unit in range(1024):
-    for unit in selected_units:
-        unit_activations = activations[:, unit]  
+    #selected_units = [0, 6, 99]
+    for unit in range(1024):
+    #for unit in selected_units:
+        unit_activations = activations[:, unit]
+        #print("size  unit_activations",  unit_activations.shape)
+       
         unit_activations = unit_activations.unsqueeze(1)
+        #print(" unit_activations", unit_activations)
         if unit_activations.max().item()== 0 and unit_activations.mean().item()==0:
             continue
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
-        
+        #print(f"Unit {unit}, Activation Ranges: {activation_ranges}")
+
         
         for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
             dir_current_results = (
@@ -1070,13 +1072,18 @@ def main():
                     activation_range,
                     mask_shape=mask_shape,
                 )
+                unit_activations2 = unit_activations.cpu().detach().numpy().astype(int)
+                #print(" unit_activations2 ",  unit_activations2 [:10])
+                unit_activations2[~ ((unit_activations2>=activation_range[0]) & (unit_activations2<=activation_range[1]))]= 0
+                #print(" unit_activations2neww ",  unit_activations2 [:10])
                 
-                formula, final = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
+                formula, final = compute_best_sentence_iou_niloo(unit, unit_activations2, tok_feats, tok_feats_vocab)
                 r = search_feats_niloo(final, (tok_feats, tok_feats_vocab), weights, cluster_index) 
-
+                r["activation_range"]= activation_range
                 records.append(r)
-              
-                
+                if formula == None:
+                    continue
+            
                 
                 feat_type = "sentence"
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
@@ -1131,7 +1138,7 @@ def main():
 #         for idx, (premise, hypothesis) in enumerate(dataset.to_text(toks)):
 #         print("First 5 entries of toks:", toks[:5])     # it is numpy-array 2 D
 #         print("Type of first element:", type(toks[0])
-        print("records", records) 
+        #print("records", records) 
     
     
         # convert records which is a list of dictionary to a dataframe. 
@@ -1139,7 +1146,7 @@ def main():
     
         print("Visualizing features")
         from vis import sentence_report
-
+        
         sentence_report.make_html(
             records,
             # Features
@@ -1155,8 +1162,31 @@ def main():
         )
     
     
+            
+            
+    df = pd.DataFrame(records, columns=['neuron', 'cluster_index', 'feature', 'category',  'category_fine', 'iou', 'feature_length', 'w_entail', 'w_neutral', 'w_contra'])
+                                    
     
-#         for idx, tok_pair in enumerate(toks):
+    df.to_csv("output.csv", index=False) 
+    
+
+    
+
+if __name__ == "__main__":
+    main()
+
+    
+    
+    
+    
+    
+    
+    
+    
+    #             output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
+#     df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
+    
+    #         for idx, tok_pair in enumerate(toks):
 #             if not isinstance(tok_pair, np.ndarray) or tok_pair.ndim != 2:
 #                 print(f"Skipping invalid token pair at index {idx}: {tok_pair}")
 #                 continue           
@@ -1194,20 +1224,3 @@ def main():
 #                 f"Correct: {correct}"
 #             )
             
-            
-            
-    df = pd.DataFrame(records, columns=['neuron', 'cluster_index', 'feature', 'category',  'category_fine', 'iou', 'feature_length', 'w_entail', 'w_neutral', 'w_contra'])
-                                    
-    
-    df.to_csv("output.csv", index=False)
-    print("df.head()", df.head())
-    print("df.columns",df.columns)  
-    
-#             output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
-#     df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
-    
-    
-    
-
-if __name__ == "__main__":
-    main()
