@@ -727,7 +727,7 @@ def search_feats_niloo(final, feats, weights, cluster_index):
         "w_contra": contra_weight,
 #         "formula_str": best_formula_str, #I added to convert formula to string.
     }
-
+    
     return r
 
 
@@ -964,7 +964,7 @@ def main():
         model_type ="bowman",
         root_models="models/",
         pretrained="snli",
-        num_clusters=1,   #change to 3
+        num_clusters=3,   #change to 3
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
@@ -1012,6 +1012,7 @@ def main():
         model,
         dataset,
     )
+    print ("Nilooooooo idxs", idxs)
     print("Computing quantiles")
     acts = quantile_features(states)
     tok_feats, tok_feats_vocab = to_sentence(toks, feats, dataset)
@@ -1036,10 +1037,10 @@ def main():
     predf = f"data/analysis/preds/{mbase}_{dbase}.csv"
     # Add the feature activations so we can do correlation
     preds = pd.read_csv(predf)
-    print("preds.shape ", preds.shape)
-    print("First three rows of preds (using slicing):\n", preds.iloc[:3]) 
-    print( "preds.columns", preds.columns) #include gt, prediction, correct
-    print(preds.head())
+    #print("preds.shape ", preds.shape)
+    #print("First three rows of preds (using slicing):\n", preds.iloc[:3]) 
+    #print( "preds.columns", preds.columns) #include gt, prediction, correct
+    #print(preds.head())
     records = []
     output = []
     selected_units = [0, 6, 99]
@@ -1072,7 +1073,10 @@ def main():
                 
                 formula, final = compute_best_sentence_iou_niloo(unit, unit_activations.cpu().detach().numpy().astype(int), tok_feats, tok_feats_vocab)
                 r = search_feats_niloo(final, (tok_feats, tok_feats_vocab), weights, cluster_index) 
+
                 records.append(r)
+              
+                
                 
                 feat_type = "sentence"
                 #masks = formula.masks # get_mask(feats, formula, dataset, feat_type)   #getting masks based on CE/nli
@@ -1129,28 +1133,27 @@ def main():
 #         print("Type of first element:", type(toks[0])
         print("records", records) 
     
+    
         # convert records which is a list of dictionary to a dataframe. 
         #save dataframe cvs. 
     
-#         print("Visualizing features")
-#         from vis import sentence_report
+        print("Visualizing features")
+        from vis import sentence_report
 
-#         sentence_report.make_html(
-#             records,
-#             # Features
-#             toks,
-#             states,
-#             (tok_feats, tok_feats_vocab),
-#             idxs,
-#             preds,
-#             # General stuff
-#             weights,
-#             dataset,
-#             settings.RESULT,
-#         )
+        sentence_report.make_html(
+            records,
+            # Features
+            toks,
+            states,
+            (tok_feats, tok_feats_vocab),
+            idxs,
+            preds,
+            # General stuff
+            weights,
+            dataset,
+            settings.RESULT,
+        )
     
-
-
     
     
 #         for idx, tok_pair in enumerate(toks):
@@ -1190,7 +1193,16 @@ def main():
 #                 f"PRED: {pred_label} - "
 #                 f"Correct: {correct}"
 #             )
-#             break
+            
+            
+            
+    df = pd.DataFrame(records, columns=['neuron', 'cluster_index', 'feature', 'category',  'category_fine', 'iou', 'feature_length', 'w_entail', 'w_neutral', 'w_contra'])
+                                    
+    
+    df.to_csv("output.csv", index=False)
+    print("df.head()", df.head())
+    print("df.columns",df.columns)  
+    
 #             output += [[unit, cluster_index,  best_formula_str, best_iou, visited, premise, hypothesis, act_score, gt_label, pred_label,  correct]]
 #     df = pd.DataFrame(output, columns = ['unit', 'cluster_index', 'Best Formula', 'Best IoU', 'Visited', 'Premise', 'Hypothesis','ACT', 'GT', 'PRED', 'Correct'] )
     
