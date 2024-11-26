@@ -1041,19 +1041,21 @@ def main():
     preds = pd.read_csv(predf)
     records = []
     output = []
-    #selected_units = [0, 6, 99]
+    #selected_units = [0,312, 313, 99]
     for unit in range(1024):
-    #for unit in selected_units:
+#     for unit in selected_units:
         unit_activations = activations[:, unit]
         #print("size  unit_activations",  unit_activations.shape)
        
         unit_activations = unit_activations.unsqueeze(1)
         #print(" unit_activations", unit_activations)
-        if unit_activations.max().item()== 0 and unit_activations.mean().item()==0:
+        print("untitttt", unit, unit_activations.shape) #untitttt 0 torch.Size([10000, 1])
+        if unit_activations.max().item()== 0 and unit_activations.mean()==0 and unit_activations[unit_activations > 0].shape[0]< cfg.num_clusters:
             continue
         activation_ranges = activation_utils_src.compute_activation_ranges(unit_activations, cfg.num_clusters)
         #print(f"Unit {unit}, Activation Ranges: {activation_ranges}")
-
+        if activation_ranges == None:
+            continue 
         
         for cluster_index, activation_range in enumerate(sorted(activation_ranges)):
             dir_current_results = (

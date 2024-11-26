@@ -126,12 +126,12 @@ def beam_search(
         visited_indices += 1
 
         if not current_beam.full():
-            print('not current_beam.full() ' , candidate.formula)
+            #print('not current_beam.full() ' , candidate.formula)
             candidate.iou = iou
             current_beam.put(candidate)
             minimum = current_beam.queue[0].iou
         elif iou > minimum:
-            print('iou > minimum ' , candidate.formula)
+            #print('iou > minimum ' , candidate.formula)
             candidate.iou = iou
             current_beam.get()
             current_beam.put(candidate)
@@ -305,7 +305,8 @@ def perform_heuristic_search(
         
         print("Warning: Beam is empty, no results to process.")
         top_result = None  # or handle this case as needed
-    
+    if len(Counter(beam).most_common(1))== 0:
+        return None, None, None 
     top_result = Counter(beam).most_common(1)[0]
     
     #print(" beam, top_result",  beam, top_result)

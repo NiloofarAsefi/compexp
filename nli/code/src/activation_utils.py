@@ -62,6 +62,9 @@ def compute_activation_ranges(
             activations = activations[activations > 0]
             activations = activations.reshape(-1, 1)
         # Compute activation ranges
+        #print("activation_util",  activations.shape)
+        if  activations.shape[0]< num_clusters:
+            return None 
         clusters = scikit_cluster.KMeans(
             n_clusters=num_clusters, random_state=0
             ).fit(activations)
