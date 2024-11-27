@@ -170,14 +170,26 @@ def make_card(
         preds_where_true = preds.iloc[np.argwhere(feature_mask).squeeze(1)]
 
         snli_entropy = pred_entropy(preds_where_true)
-        if preds_where_true.shape[0] == 0:
+        
+        # Check if snli_entropy is valid and has a "shape" attribute
+        if (isinstance(snli_entropy, (np.ndarray, list)) and len(snli_entropy) == 0) or preds_where_true.shape[0] == 0:
             snli_entropy = 0.0
             cm_html = ""
         else:
-            cm_html = make_cm_html(preds_where_true, snli_entropy)
+            cm_html = make_cm_html(preds_where_true, snli_entropy)   
     else:
         snli_entropy = 0.0
         cm_html = ""
+       
+        
+
+#         if snli_entropy.shape[0] == 0 or preds_where_true.shape[0] == 0:
+#             print("Warning: snli_entropy is empty or invalid. Assigning default value.")
+#             snli_entropy = 0.0
+#             cm_html = ""
+#         else:
+#             cm_html = make_cm_html(preds_where_true, snli_entropy)
+
 
     all_examples_html = combine_examples(examples, record["neuron"])
     all_examples_html = f"{all_examples_html}{cm_html}"
