@@ -17,25 +17,74 @@ from scipy.stats import entropy
 from sklearn.metrics import confusion_matrix
 from data.snli import LABEL_STOI
 
+# LABEL_STOI = {"entailment": 0, "neutral": 1, "contradiction": 2}
+
+# def make_cm_html(preds_where_true, snli_entropy):
+
+
+#     if preds_where_true.shape[0] == 0:
+#         cm = np.zeros((3, 3), dtype=np.int64)
+#         snli_acc = np.nan
+
+#     else:
+                
+# #         print("Labels in LABEL_STOI:", list(LABEL_STOI.keys()))
+# #         print("Unique labels in ground truth (gt):", preds_where_true["gt"].unique(), preds_where_true["gt"].shape)
+# #         print("Unique labels in predictions (pred):", preds_where_true["pred"].unique(), preds_where_true["pred"].shape)
+
+        
+#         cm = confusion_matrix(
+#             preds_where_true["gt"],
+#             preds_where_true["pred"],
+#             labels=list(LABEL_STOI.keys()),
+#         )
+#         snli_acc = np.diagonal(cm).sum() / cm.sum()
+
+#     cm_html = cm_to_table(cm, f"SNLI (Acc: {snli_acc:.2f} Entropy: {snli_entropy:.2f})")
+#     return f"""
+#     <div class="cm-section">
+#     {cm_html}
+#     </div>
+#     """
 
 def make_cm_html(preds_where_true, snli_entropy):
+    # Filter out rows where the ground truth (gt) contains "UNK"
+    preds_where_true = preds_where_true[preds_where_true["gt"] != "UNK"]
+
     if preds_where_true.shape[0] == 0:
+        # Handle case when no valid rows are left after filtering
         cm = np.zeros((3, 3), dtype=np.int64)
         snli_acc = np.nan
     else:
-        cm = confusion_matrix(
-            preds_where_true["gt"],
-            preds_where_true["pred"],
-            labels=list(LABEL_STOI.keys()),
-        )
-        snli_acc = np.diagonal(cm).sum() / cm.sum()
+        # Debugging information (optional, can be uncommented if needed)
+        # print("Labels in LABEL_STOI:", list(LABEL_STOI.keys()))
+        # print("Unique labels in ground truth (gt):", preds_where_true["gt"].unique(), preds_where_true["gt"].shape)
+        # print("Unique labels in predictions (pred):", preds_where_true["pred"].unique(), preds_where_true["pred"].shape)
 
+        try:
+            # Compute the confusion matrix
+            cm = confusion_matrix(
+                preds_where_true["gt"],
+                preds_where_true["pred"],
+                labels=list(LABEL_STOI.keys()),
+            )
+            snli_acc = np.diagonal(cm).sum() / cm.sum()
+        except ValueError as e:
+            # Handle error if confusion matrix computation fails
+            print(f"Error while computing confusion matrix: {e}")
+            print("Filtered ground truth (gt):", preds_where_true["gt"].unique())
+            print("Filtered predictions (pred):", preds_where_true["pred"].unique())
+            cm = np.zeros((3, 3), dtype=np.int64)
+            snli_acc = np.nan
+
+    # Convert the confusion matrix to an HTML table
     cm_html = cm_to_table(cm, f"SNLI (Acc: {snli_acc:.2f} Entropy: {snli_entropy:.2f})")
     return f"""
     <div class="cm-section">
     {cm_html}
     </div>
     """
+
 
 
 def cm_to_table(cm, title):
@@ -172,15 +221,32 @@ def make_card(
         snli_entropy = pred_entropy(preds_where_true)
         
         # Check if snli_entropy is valid and has a "shape" attribute
-        if (isinstance(snli_entropy, (np.ndarray, list)) and len(snli_entropy) == 0) or preds_where_true.shape[0] == 0:
+#         if (isinstance(snli_entropy, (np.ndarray, list)) and len(snli_entropy) == 0) or preds_where_true.shape[0] == 0: 
+#             if "UNK" in preds_where_true["gt"].unique():
+#                 snli_entropy = 0.0
+#                 cm_html = ""
+#             else:
+#                 cm_html = make_cm_html(preds_where_true, snli_entropy)   
+#         else:
+#             cm_html = make_cm_html(preds_where_true, snli_entropy)   
+#     else:
+#         snli_entropy = 0.0
+#         cm_html = ""
+       
+      
+    if (isinstance(snli_entropy, (np.ndarray, list)) and len(snli_entropy) == 0) or preds_where_true.shape[0] == 0: 
+        # Filter out "UNK" from ground truth before proceeding
+        preds_where_true = preds_where_true[preds_where_true["gt"] != "UNK"]
+
+        if preds_where_true.shape[0] == 0:  # Check if filtering results in an empty dataset
             snli_entropy = 0.0
             cm_html = ""
         else:
-            cm_html = make_cm_html(preds_where_true, snli_entropy)   
+            cm_html = make_cm_html(preds_where_true, snli_entropy)
     else:
-        snli_entropy = 0.0
-        cm_html = ""
-       
+        cm_html = make_cm_html(preds_where_true, snli_entropy)
+        
+        
         
 
 #         if snli_entropy.shape[0] == 0 or preds_where_true.shape[0] == 0:

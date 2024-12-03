@@ -965,7 +965,7 @@ def main():
         model_type ="bowman",
         root_models="models/",
         pretrained="snli",
-        num_clusters=3,   #change to 3
+        num_clusters=5,   #change to 5
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
@@ -1041,7 +1041,7 @@ def main():
     preds = pd.read_csv(predf)
     records = []
     output = []
-    #selected_units = [0,312, 313, 99]
+#     selected_units = [348, 349, 0, 575, 576, 275, 276, 99]
     for unit in range(1024):
 #     for unit in selected_units:
         unit_activations = activations[:, unit]
