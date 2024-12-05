@@ -965,7 +965,7 @@ def main():
         model_type ="bowman",
         root_models="models/",
         pretrained="snli",
-        num_clusters=5,   #change to 5
+        num_clusters=1,   #change to 1
         beam_limit=10,
         device="cuda",  # Or "cpu" based on availability
         dataset="snli",
@@ -1076,7 +1076,8 @@ def main():
                 )
                 unit_activations2 = unit_activations.cpu().detach().numpy().astype(int)
                 #print(" unit_activations2 ",  unit_activations2 [:10])
-                unit_activations2[~ ((unit_activations2>=activation_range[0]) & (unit_activations2<=activation_range[1]))]= 0
+                # for cluster 1, I comment it out. 
+#                 unit_activations2[~ ((unit_activations2>=activation_range[0]) & (unit_activations2<=activation_range[1]))]= 0
                 #print(" unit_activations2neww ",  unit_activations2 [:10])
                 
                 formula, final = compute_best_sentence_iou_niloo(unit, unit_activations2, tok_feats, tok_feats_vocab)

@@ -171,10 +171,9 @@ def make_card(
 
     # Get states for this neuron only
     states = states[:, neuron].copy()
-    #print(" make_card states", states)
-    #print(" make_card activation_range",  activation_range)
-    #print("cluster_index", cluster_index)
-    states[~ ((states>=activation_range[0]) & (states<=activation_range[1]))]= 0
+    
+    # for cluster 1, I comment it out. 
+#     states[~ ((states>=activation_range[0]) & (states<=activation_range[1]))]= 0
     # states are unit_activations, for each cluster we want unit activations in activation ranges
     # Count how often neuron activates. If it's for less than 5 examples across 10k, discard it
     if (states > 0).sum() < settings.MIN_ACTS:    #MIN_ACT = 0
